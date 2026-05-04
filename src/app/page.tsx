@@ -7,31 +7,37 @@ import CountryPanel from '@/components/CountryPanel'
 import CountriesList from '@/components/CountriesList'
 import StatsBar from '@/components/StatsBar'
 import { useCountries, useCountryFull, useStats, type Country } from '@/hooks/useData'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Settings } from 'lucide-react'
 
 export default function Home() {
   const { countries, loading: countriesLoading } = useCountries()
   const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null)
+  const [targetCountry, setTargetCountry] = useState<Country | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { data: selectedData, loading: panelLoading } = useCountryFull(selectedCountryId)
   const { friendCount, photoCount } = useStats(countries)
 
   const handleSelect = useCallback((country: Country | null) => {
-    if (!country) { setSelectedCountryId(null); return }
+    if (!country) { setSelectedCountryId(null); setTargetCountry(null); return }
     setSelectedCountryId(prev => prev === country.id ? null : country.id)
+    setTargetCountry(country)
     setSidebarOpen(false)
   }, [])
 
-  const handleClose = useCallback(() => setSelectedCountryId(null), [])
+  const handleSidebarSelect = useCallback((country: Country) => {
+    setSelectedCountryId(country.id)
+    setTargetCountry(country)
+    setSidebarOpen(false)
+  }, [])
+
+  const handleClose = useCallback(() => {
+    setSelectedCountryId(null)
+    setTargetCountry(null)
+  }, [])
 
   return (
-    <div style={{
-      minHeight: '100dvh',
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -10 }}
@@ -44,24 +50,24 @@ export default function Home() {
           borderBottom: '1px solid var(--border)',
           position: 'relative',
           zIndex: 10,
-          backdropFilter: 'blur(10px)',
-          background: 'rgba(var(--bg), 0.8)',
         }}
       >
-        <div>
-          <h1 style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1.6rem',
-            fontWeight: 400,
-            letterSpacing: '-0.02em',
-            color: 'var(--text-primary)',
-            lineHeight: 1,
-          }}>
-            Atlas
-          </h1>
-          <p style={{ fontSize: '0.65rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: 2 }}>
-            Travel Archive
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div>
+            <h1 style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.6rem',
+              fontWeight: 400,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-primary)',
+              lineHeight: 1,
+            }}>
+              Atlas
+            </h1>
+            <p style={{ fontSize: '0.65rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: 2 }}>
+              Travel Archive
+            </p>
+          </div>
         </div>
 
         <StatsBar
@@ -70,26 +76,51 @@ export default function Home() {
           photoCount={photoCount}
         />
 
-        {/* Mobile menu toggle */}
-        <button
-          onClick={() => setSidebarOpen(o => !o)}
-          style={{
-            display: 'none',
-            background: 'none', border: '1px solid var(--border)',
-            borderRadius: 8, padding: '6px 10px',
-            cursor: 'pointer', color: 'var(--text-primary)',
-          }}
-          className="mobile-menu-btn"
-          aria-label="Toggle country list"
-        >
-          {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <a
+            href="/admin"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: '0.75rem', color: 'var(--text-muted)',
+              textDecoration: 'none',
+              padding: '6px 12px',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = 'var(--glow)'
+              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--glow)'
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
+              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
+            }}
+          >
+            <Settings size={13} />
+            <span className="admin-label">Admin</span>
+          </a>
+
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            style={{
+              display: 'none',
+              background: 'none', border: '1px solid var(--border)',
+              borderRadius: 8, padding: '6px 10px',
+              cursor: 'pointer', color: 'var(--text-primary)',
+            }}
+            className="mobile-menu-btn"
+            aria-label="Toggle country list"
+          >
+            {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
+          </button>
+        </div>
       </motion.header>
 
       {/* Main layout */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
 
-        {/* Left sidebar — country list */}
+        {/* Left sidebar */}
         <motion.aside
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -113,12 +144,12 @@ export default function Home() {
             <CountriesList
               countries={countries}
               selectedId={selectedCountryId}
-              onSelect={handleSelect}
+              onSelect={handleSidebarSelect}
             />
           )}
         </motion.aside>
 
-        {/* Globe centre */}
+        {/* Globe */}
         <div style={{
           flex: 1,
           display: 'flex',
@@ -132,13 +163,8 @@ export default function Home() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1, duration: 0.5 }}
-            style={{
-              width: '100%',
-              maxWidth: 500,
-              position: 'relative',
-            }}
+            style={{ width: '100%', maxWidth: 500, position: 'relative' }}
           >
-            {/* Glow behind globe */}
             <div style={{
               position: 'absolute',
               inset: '-20%',
@@ -150,6 +176,7 @@ export default function Home() {
               countries={countries}
               selectedId={selectedCountryId}
               onSelect={handleSelect}
+              targetCountry={targetCountry}
             />
           </motion.div>
 
@@ -168,7 +195,7 @@ export default function Home() {
           </motion.p>
         </div>
 
-        {/* Right panel — country detail */}
+        {/* Right panel */}
         <div style={{ position: 'relative', flexShrink: 0, width: selectedCountryId || panelLoading ? 340 : 0, transition: 'width 0.3s ease' }}>
           <CountryPanel
             data={selectedData}
@@ -182,6 +209,7 @@ export default function Home() {
         @media (max-width: 768px) {
           .sidebar-desktop { display: none !important; }
           .mobile-menu-btn { display: flex !important; }
+          .admin-label { display: none; }
         }
       `}</style>
     </div>
