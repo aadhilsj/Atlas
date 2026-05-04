@@ -95,9 +95,9 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       path(f)
 
       if (isSelected) {
-        ctx.fillStyle = isDark ? '#ffd98a' : '#e8a030'
+        ctx.fillStyle = isDark ? '#4dd8b0' : '#1a9e78'
       } else if (isHovered) {
-        ctx.fillStyle = isDark ? '#f0c46a' : '#d4901a'
+        ctx.fillStyle = isDark ? '#6ee8c4' : '#22b888'
       } else if (visited) {
         ctx.fillStyle = isDark ? '#d4a040' : '#b87c20'
       } else {
