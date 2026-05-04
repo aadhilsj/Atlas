@@ -22,6 +22,8 @@ const CENTROIDS: Record<string, [number, number]> = {
   IDN: [114, -2], MYS: [110, 4], PHL: [122, 13], VNM: [108, 16],
   ZAF: [25, -29], KEN: [38, 1], MAR: [-7, 32], EGY: [30, 27],
   BRA: [-51, -10], ARG: [-64, -34], MEX: [-102, 24], COL: [-74, 4],
+  HUN: [19, 47], ISL: [-19, 65], DNK: [10, 56], SWE: [18, 62],
+  FIN: [26, 64], POL: [20, 52], CZE: [16, 50], AUT: [14, 47],
 }
 
 export default function Globe({ countries, selectedId, onSelect, targetCountry }: GlobeProps) {
@@ -35,6 +37,8 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     animId: 0,
     countries: [] as Country[],
     selectedId: null as string | null,
+    zoom: 1,
+    pinchDist: 0,
   })
 
   const visitedSet = useRef<Map<number, Country>>(new Map())
@@ -44,9 +48,11 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     stateRef.current.countries = countries
   }, [countries])
 
-  useEffect(() => {
-    stateRef.current.selectedId = selectedId
-  }, [selectedId])
+  useEffect(() => { stateRef.current.selectedId = selectedId }, [selectedId])
+
+  const getScale = useCallback((canvas: HTMLCanvasElement) => {
+    return Math.min(canvas.width, canvas.height) * 0.44 * stateRef.current.zoom
+  }, [])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -57,7 +63,7 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     const { rotation, hovered, selectedId } = stateRef.current
     const W = canvas.width
     const H = canvas.height
-    const scale = Math.min(W, H) * 0.44
+    const scale = getScale(canvas)
 
     const projection = d3.geoOrthographic()
       .scale(scale)
@@ -123,34 +129,25 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     atmo.addColorStop(1, isDark ? 'rgba(232,184,109,0.08)' : 'rgba(180,140,60,0.12)')
     ctx.fillStyle = atmo
     ctx.fill()
-  }, [])
+  }, [getScale])
 
   const rotateTo = useCallback((lon: number, lat: number) => {
     const state = stateRef.current
     if (state.animId) cancelAnimationFrame(state.animId)
-
     const startRot: [number, number, number] = [...state.rotation] as [number, number, number]
     const targetRot: [number, number, number] = [-lon, -lat, 0]
-
     let dLon = targetRot[0] - startRot[0]
     while (dLon > 180) dLon -= 360
     while (dLon < -180) dLon += 360
-
     const start = performance.now()
     const duration = 900
-
     const animate = (now: number) => {
       const t = Math.min((now - start) / duration, 1)
       const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
-      state.rotation = [
-        startRot[0] + dLon * ease,
-        startRot[1] + (targetRot[1] - startRot[1]) * ease,
-        0,
-      ]
+      state.rotation = [startRot[0] + dLon * ease, startRot[1] + (targetRot[1] - startRot[1]) * ease, 0]
       draw()
       if (t < 1) state.animId = requestAnimationFrame(animate)
     }
-
     state.animId = requestAnimationFrame(animate)
   }, [draw])
 
@@ -163,17 +160,13 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
   const getCountryAtPoint = useCallback((x: number, y: number): Country | null => {
     const canvas = canvasRef.current
     if (!canvas || !stateRef.current.world) return null
-
-    const scale = Math.min(canvas.width, canvas.height) * 0.44
     const projection = d3.geoOrthographic()
-      .scale(scale)
+      .scale(getScale(canvas))
       .translate([canvas.width / 2, canvas.height / 2])
       .rotate(stateRef.current.rotation)
       .clipAngle(90)
-
     const coords = projection.invert?.([x, y])
     if (!coords) return null
-
     for (const f of stateRef.current.world.features) {
       if (d3.geoContains(f, coords)) {
         const numId = parseInt(f.id)
@@ -181,7 +174,7 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       }
     }
     return null
-  }, [])
+  }, [getScale])
 
   useEffect(() => {
     let cancelled = false
@@ -189,8 +182,7 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       .then(r => r.json())
       .then((world: Topology) => {
         if (cancelled) return
-        const geo = feature(world, (world.objects as any).countries)
-        stateRef.current.world = geo
+        stateRef.current.world = feature(world, (world.objects as any).countries)
         draw()
       })
     return () => { cancelled = true }
@@ -206,7 +198,6 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       canvas.height = size
       draw()
     }
-
     const ro = new ResizeObserver(resize)
     ro.observe(canvas.parentElement!)
     resize()
@@ -215,7 +206,6 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       const rect = canvas.getBoundingClientRect()
       const x = (e.clientX - rect.left) * (canvas.width / rect.width)
       const y = (e.clientY - rect.top) * (canvas.height / rect.height)
-
       if (stateRef.current.dragging) {
         const dx = e.clientX - stateRef.current.lastPos[0]
         const dy = e.clientY - stateRef.current.lastPos[1]
@@ -225,7 +215,6 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
         draw()
         return
       }
-
       const found = getCountryAtPoint(x, y)
       if (found?.id !== stateRef.current.hovered?.id) {
         stateRef.current.hovered = found
@@ -251,26 +240,48 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       const rect = canvas.getBoundingClientRect()
       const x = (e.clientX - rect.left) * (canvas.width / rect.width)
       const y = (e.clientY - rect.top) * (canvas.height / rect.height)
-      const found = getCountryAtPoint(x, y)
-      onSelect(found)
+      onSelect(getCountryAtPoint(x, y))
     }
 
+    // Scroll to zoom
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const delta = e.deltaY > 0 ? -0.08 : 0.08
+      stateRef.current.zoom = Math.max(0.5, Math.min(4, stateRef.current.zoom + delta))
+      draw()
+    }
+
+    // Touch drag
     const onTouchStart = (e: TouchEvent) => {
       if (stateRef.current.animId) cancelAnimationFrame(stateRef.current.animId)
-      const t = e.touches[0]
-      stateRef.current.dragging = true
-      stateRef.current.lastPos = [t.clientX, t.clientY]
+      if (e.touches.length === 1) {
+        stateRef.current.dragging = true
+        stateRef.current.lastPos = [e.touches[0].clientX, e.touches[0].clientY]
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        stateRef.current.pinchDist = Math.sqrt(dx * dx + dy * dy)
+      }
     }
 
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault()
-      const t = e.touches[0]
-      const dx = t.clientX - stateRef.current.lastPos[0]
-      const dy = t.clientY - stateRef.current.lastPos[1]
-      stateRef.current.rotation[0] += dx * 0.35
-      stateRef.current.rotation[1] = Math.max(-85, Math.min(85, stateRef.current.rotation[1] - dy * 0.35))
-      stateRef.current.lastPos = [t.clientX, t.clientY]
-      draw()
+      if (e.touches.length === 1 && stateRef.current.dragging) {
+        const dx = e.touches[0].clientX - stateRef.current.lastPos[0]
+        const dy = e.touches[0].clientY - stateRef.current.lastPos[1]
+        stateRef.current.rotation[0] += dx * 0.35
+        stateRef.current.rotation[1] = Math.max(-85, Math.min(85, stateRef.current.rotation[1] - dy * 0.35))
+        stateRef.current.lastPos = [e.touches[0].clientX, e.touches[0].clientY]
+        draw()
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const delta = (dist - stateRef.current.pinchDist) * 0.005
+        stateRef.current.zoom = Math.max(0.5, Math.min(4, stateRef.current.zoom + delta))
+        stateRef.current.pinchDist = dist
+        draw()
+      }
     }
 
     const onTouchEnd = () => { stateRef.current.dragging = false }
@@ -279,6 +290,7 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     canvas.addEventListener('mousedown', onMouseDown)
     window.addEventListener('mouseup', onMouseUp)
     canvas.addEventListener('click', onClick)
+    canvas.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('touchstart', onTouchStart, { passive: true })
     canvas.addEventListener('touchmove', onTouchMove, { passive: false })
     canvas.addEventListener('touchend', onTouchEnd)
@@ -289,6 +301,7 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       canvas.removeEventListener('mousedown', onMouseDown)
       window.removeEventListener('mouseup', onMouseUp)
       canvas.removeEventListener('click', onClick)
+      canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('touchstart', onTouchStart)
       canvas.removeEventListener('touchmove', onTouchMove)
       canvas.removeEventListener('touchend', onTouchEnd)
