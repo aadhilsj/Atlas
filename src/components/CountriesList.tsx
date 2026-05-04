@@ -10,10 +10,27 @@ interface CountriesListProps {
 }
 
 const FLAG_MAP: Record<string, string> = {
-  NOR: '🇳🇴', LKA: '🇱🇰', CHE: '🇨🇭', GBR: '🇬🇧', FRA: '🇫🇷',
-  ITA: '🇮🇹', DEU: '🇩🇪', NLD: '🇳🇱', ESP: '🇪🇸', PRT: '🇵🇹',
-  USA: '🇺🇸', JPN: '🇯🇵', AUS: '🇦🇺', CAN: '🇨🇦', IND: '🇮🇳',
-  SGP: '🇸🇬', THA: '🇹🇭', ARE: '🇦🇪', TUR: '🇹🇷', GRC: '🇬🇷',
+  AFG: '🇦🇫', ALB: '🇦🇱', DZA: '🇩🇿', ARG: '🇦🇷', ARM: '🇦🇲',
+  AUS: '🇦🇺', AUT: '🇦🇹', AZE: '🇦🇿', BHR: '🇧🇭', BGD: '🇧🇩',
+  BEL: '🇧🇪', BOL: '🇧🇴', BRA: '🇧🇷', BGR: '🇧🇬', KHM: '🇰🇭',
+  CAN: '🇨🇦', CHL: '🇨🇱', CHN: '🇨🇳', COL: '🇨🇴', HRV: '🇭🇷',
+  CUB: '🇨🇺', CYP: '🇨🇾', CZE: '🇨🇿', DNK: '🇩🇰', ECU: '🇪🇨',
+  EGY: '🇪🇬', EST: '🇪🇪', ETH: '🇪🇹', FIN: '🇫🇮', FRA: '🇫🇷',
+  GEO: '🇬🇪', DEU: '🇩🇪', GHA: '🇬🇭', GRC: '🇬🇷', HUN: '🇭🇺',
+  ISL: '🇮🇸', IND: '🇮🇳', IDN: '🇮🇩', IRN: '🇮🇷', IRQ: '🇮🇶',
+  IRL: '🇮🇪', ISR: '🇮🇱', ITA: '🇮🇹', JAM: '🇯🇲', JPN: '🇯🇵',
+  JOR: '🇯🇴', KAZ: '🇰🇿', KEN: '🇰🇪', KWT: '🇰🇼', LAO: '🇱🇦',
+  LVA: '🇱🇻', LBN: '🇱🇧', LTU: '🇱🇹', LUX: '🇱🇺', MYS: '🇲🇾',
+  MDV: '🇲🇻', MLT: '🇲🇹', MEX: '🇲🇽', MNG: '🇲🇳', MNE: '🇲🇪',
+  MAR: '🇲🇦', MMR: '🇲🇲', NPL: '🇳🇵', NLD: '🇳🇱', NZL: '🇳🇿',
+  NGA: '🇳🇬', NOR: '🇳🇴', OMN: '🇴🇲', PAK: '🇵🇰', PAN: '🇵🇦',
+  PER: '🇵🇪', PHL: '🇵🇭', POL: '🇵🇱', PRT: '🇵🇹', QAT: '🇶🇦',
+  ROU: '🇷🇴', RUS: '🇷🇺', SAU: '🇸🇦', SRB: '🇷🇸', SGP: '🇸🇬',
+  SVK: '🇸🇰', SVN: '🇸🇮', ZAF: '🇿🇦', KOR: '🇰🇷', ESP: '🇪🇸',
+  LKA: '🇱🇰', SWE: '🇸🇪', CHE: '🇨🇭', TWN: '🇹🇼', TZA: '🇹🇿',
+  THA: '🇹🇭', TUN: '🇹🇳', TUR: '🇹🇷', UGA: '🇺🇬', UKR: '🇺🇦',
+  ARE: '🇦🇪', GBR: '🇬🇧', USA: '🇺🇸', URY: '🇺🇾', UZB: '🇺🇿',
+  VEN: '🇻🇪', VNM: '🇻🇳', ZWE: '🇿🇼',
 }
 
 export default function CountriesList({ countries, selectedId, onSelect }: CountriesListProps) {
@@ -64,11 +81,9 @@ export default function CountriesList({ countries, selectedId, onSelect }: Count
             <div style={{ fontSize: '0.85rem', fontWeight: selectedId === c.id ? 500 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {c.name}
             </div>
-            {c.visited_at && (
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                {new Date(c.visited_at).getFullYear()}
-              </div>
-            )}
+            <div style={{ fontSize: '0.7rem', color: c.residence_status === 'living' ? '#4dd8b0' : c.residence_status === 'lived' ? '#4a9eff' : 'var(--text-muted)' }}>
+              {c.residence_status === 'living' ? '🏠 Living' : c.residence_status === 'lived' ? '📦 Lived' : c.visited_at ? new Date(c.visited_at).getFullYear() : ''}
+            </div>
           </div>
           {selectedId === c.id && (
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--glow)', flexShrink: 0 }} />
