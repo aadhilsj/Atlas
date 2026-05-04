@@ -1,17 +1,123 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Trash2, Globe, Camera, Youtube, Users, Lock, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, Globe, Youtube, Users, Lock, ChevronDown, ChevronUp, Search } from 'lucide-react'
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'atlas2024'
 
-const FLAG_MAP: Record<string, string> = {
-  NOR: '🇳🇴', LKA: '🇱🇰', CHE: '🇨🇭', GBR: '🇬🇧', FRA: '🇫🇷',
-  ITA: '🇮🇹', DEU: '🇩🇪', NLD: '🇳🇱', ESP: '🇪🇸', PRT: '🇵🇹',
-  USA: '🇺🇸', JPN: '🇯🇵', AUS: '🇦🇺', CAN: '🇨🇦', IND: '🇮🇳',
-  SGP: '🇸🇬', THA: '🇹🇭', ARE: '🇦🇪', TUR: '🇹🇷', GRC: '🇬🇷',
+// Full country lookup: name -> { code, numeric }
+const COUNTRY_LOOKUP: Record<string, { code: string; numeric: number; flag: string }> = {
+  'Afghanistan': { code: 'AFG', numeric: 4, flag: '🇦🇫' },
+  'Albania': { code: 'ALB', numeric: 8, flag: '🇦🇱' },
+  'Algeria': { code: 'DZA', numeric: 12, flag: '🇩🇿' },
+  'Argentina': { code: 'ARG', numeric: 32, flag: '🇦🇷' },
+  'Armenia': { code: 'ARM', numeric: 51, flag: '🇦🇲' },
+  'Australia': { code: 'AUS', numeric: 36, flag: '🇦🇺' },
+  'Austria': { code: 'AUT', numeric: 40, flag: '🇦🇹' },
+  'Azerbaijan': { code: 'AZE', numeric: 31, flag: '🇦🇿' },
+  'Bahrain': { code: 'BHR', numeric: 48, flag: '🇧🇭' },
+  'Bangladesh': { code: 'BGD', numeric: 50, flag: '🇧🇩' },
+  'Belgium': { code: 'BEL', numeric: 56, flag: '🇧🇪' },
+  'Bolivia': { code: 'BOL', numeric: 68, flag: '🇧🇴' },
+  'Bosnia and Herzegovina': { code: 'BIH', numeric: 70, flag: '🇧🇦' },
+  'Brazil': { code: 'BRA', numeric: 76, flag: '🇧🇷' },
+  'Bulgaria': { code: 'BGR', numeric: 100, flag: '🇧🇬' },
+  'Cambodia': { code: 'KHM', numeric: 116, flag: '🇰🇭' },
+  'Canada': { code: 'CAN', numeric: 124, flag: '🇨🇦' },
+  'Chile': { code: 'CHL', numeric: 152, flag: '🇨🇱' },
+  'China': { code: 'CHN', numeric: 156, flag: '🇨🇳' },
+  'Colombia': { code: 'COL', numeric: 170, flag: '🇨🇴' },
+  'Croatia': { code: 'HRV', numeric: 191, flag: '🇭🇷' },
+  'Cuba': { code: 'CUB', numeric: 192, flag: '🇨🇺' },
+  'Cyprus': { code: 'CYP', numeric: 196, flag: '🇨🇾' },
+  'Czech Republic': { code: 'CZE', numeric: 203, flag: '🇨🇿' },
+  'Denmark': { code: 'DNK', numeric: 208, flag: '🇩🇰' },
+  'Ecuador': { code: 'ECU', numeric: 218, flag: '🇪🇨' },
+  'Egypt': { code: 'EGY', numeric: 818, flag: '🇪🇬' },
+  'Estonia': { code: 'EST', numeric: 233, flag: '🇪🇪' },
+  'Ethiopia': { code: 'ETH', numeric: 231, flag: '🇪🇹' },
+  'Finland': { code: 'FIN', numeric: 246, flag: '🇫🇮' },
+  'France': { code: 'FRA', numeric: 250, flag: '🇫🇷' },
+  'Georgia': { code: 'GEO', numeric: 268, flag: '🇬🇪' },
+  'Germany': { code: 'DEU', numeric: 276, flag: '🇩🇪' },
+  'Ghana': { code: 'GHA', numeric: 288, flag: '🇬🇭' },
+  'Greece': { code: 'GRC', numeric: 300, flag: '🇬🇷' },
+  'Hungary': { code: 'HUN', numeric: 348, flag: '🇭🇺' },
+  'Iceland': { code: 'ISL', numeric: 352, flag: '🇮🇸' },
+  'India': { code: 'IND', numeric: 356, flag: '🇮🇳' },
+  'Indonesia': { code: 'IDN', numeric: 360, flag: '🇮🇩' },
+  'Iran': { code: 'IRN', numeric: 364, flag: '🇮🇷' },
+  'Iraq': { code: 'IRQ', numeric: 368, flag: '🇮🇶' },
+  'Ireland': { code: 'IRL', numeric: 372, flag: '🇮🇪' },
+  'Israel': { code: 'ISR', numeric: 376, flag: '🇮🇱' },
+  'Italy': { code: 'ITA', numeric: 380, flag: '🇮🇹' },
+  'Jamaica': { code: 'JAM', numeric: 388, flag: '🇯🇲' },
+  'Japan': { code: 'JPN', numeric: 392, flag: '🇯🇵' },
+  'Jordan': { code: 'JOR', numeric: 400, flag: '🇯🇴' },
+  'Kazakhstan': { code: 'KAZ', numeric: 398, flag: '🇰🇿' },
+  'Kenya': { code: 'KEN', numeric: 404, flag: '🇰🇪' },
+  'Kuwait': { code: 'KWT', numeric: 414, flag: '🇰🇼' },
+  'Laos': { code: 'LAO', numeric: 418, flag: '🇱🇦' },
+  'Latvia': { code: 'LVA', numeric: 428, flag: '🇱🇻' },
+  'Lebanon': { code: 'LBN', numeric: 422, flag: '🇱🇧' },
+  'Lithuania': { code: 'LTU', numeric: 440, flag: '🇱🇹' },
+  'Luxembourg': { code: 'LUX', numeric: 442, flag: '🇱🇺' },
+  'Malaysia': { code: 'MYS', numeric: 458, flag: '🇲🇾' },
+  'Maldives': { code: 'MDV', numeric: 462, flag: '🇲🇻' },
+  'Malta': { code: 'MLT', numeric: 470, flag: '🇲🇹' },
+  'Mexico': { code: 'MEX', numeric: 484, flag: '🇲🇽' },
+  'Mongolia': { code: 'MNG', numeric: 496, flag: '🇲🇳' },
+  'Montenegro': { code: 'MNE', numeric: 499, flag: '🇲🇪' },
+  'Morocco': { code: 'MAR', numeric: 504, flag: '🇲🇦' },
+  'Myanmar': { code: 'MMR', numeric: 104, flag: '🇲🇲' },
+  'Nepal': { code: 'NPL', numeric: 524, flag: '🇳🇵' },
+  'Netherlands': { code: 'NLD', numeric: 528, flag: '🇳🇱' },
+  'New Zealand': { code: 'NZL', numeric: 554, flag: '🇳🇿' },
+  'Nigeria': { code: 'NGA', numeric: 566, flag: '🇳🇬' },
+  'North Macedonia': { code: 'MKD', numeric: 807, flag: '🇲🇰' },
+  'Norway': { code: 'NOR', numeric: 578, flag: '🇳🇴' },
+  'Oman': { code: 'OMN', numeric: 512, flag: '🇴🇲' },
+  'Pakistan': { code: 'PAK', numeric: 586, flag: '🇵🇰' },
+  'Panama': { code: 'PAN', numeric: 591, flag: '🇵🇦' },
+  'Peru': { code: 'PER', numeric: 604, flag: '🇵🇪' },
+  'Philippines': { code: 'PHL', numeric: 608, flag: '🇵🇭' },
+  'Poland': { code: 'POL', numeric: 616, flag: '🇵🇱' },
+  'Portugal': { code: 'PRT', numeric: 620, flag: '🇵🇹' },
+  'Qatar': { code: 'QAT', numeric: 634, flag: '🇶🇦' },
+  'Romania': { code: 'ROU', numeric: 642, flag: '🇷🇴' },
+  'Russia': { code: 'RUS', numeric: 643, flag: '🇷🇺' },
+  'Saudi Arabia': { code: 'SAU', numeric: 682, flag: '🇸🇦' },
+  'Serbia': { code: 'SRB', numeric: 688, flag: '🇷🇸' },
+  'Singapore': { code: 'SGP', numeric: 702, flag: '🇸🇬' },
+  'Slovakia': { code: 'SVK', numeric: 703, flag: '🇸🇰' },
+  'Slovenia': { code: 'SVN', numeric: 705, flag: '🇸🇮' },
+  'South Africa': { code: 'ZAF', numeric: 710, flag: '🇿🇦' },
+  'South Korea': { code: 'KOR', numeric: 410, flag: '🇰🇷' },
+  'Spain': { code: 'ESP', numeric: 724, flag: '🇪🇸' },
+  'Sri Lanka': { code: 'LKA', numeric: 144, flag: '🇱🇰' },
+  'Sweden': { code: 'SWE', numeric: 752, flag: '🇸🇪' },
+  'Switzerland': { code: 'CHE', numeric: 756, flag: '🇨🇭' },
+  'Taiwan': { code: 'TWN', numeric: 158, flag: '🇹🇼' },
+  'Tanzania': { code: 'TZA', numeric: 834, flag: '🇹🇿' },
+  'Thailand': { code: 'THA', numeric: 764, flag: '🇹🇭' },
+  'Tunisia': { code: 'TUN', numeric: 788, flag: '🇹🇳' },
+  'Turkey': { code: 'TUR', numeric: 792, flag: '🇹🇷' },
+  'Uganda': { code: 'UGA', numeric: 800, flag: '🇺🇬' },
+  'Ukraine': { code: 'UKR', numeric: 804, flag: '🇺🇦' },
+  'United Arab Emirates': { code: 'ARE', numeric: 784, flag: '🇦🇪' },
+  'United Kingdom': { code: 'GBR', numeric: 826, flag: '🇬🇧' },
+  'United States': { code: 'USA', numeric: 840, flag: '🇺🇸' },
+  'Uruguay': { code: 'URY', numeric: 858, flag: '🇺🇾' },
+  'Uzbekistan': { code: 'UZB', numeric: 860, flag: '🇺🇿' },
+  'Venezuela': { code: 'VEN', numeric: 862, flag: '🇻🇪' },
+  'Vietnam': { code: 'VNM', numeric: 704, flag: '🇻🇳' },
+  'Zimbabwe': { code: 'ZWE', numeric: 716, flag: '🇿🇼' },
 }
+
+const FLAG_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(COUNTRY_LOOKUP).map(([, v]) => [v.code, v.flag])
+)
 
 type Country = { id: string; name: string; country_code: string; numeric_id: number; visited_at: string | null; notes: string | null }
 type Photo = { id: string; url: string; caption: string | null }
@@ -31,14 +137,19 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false)
   const [expandedSection, setExpandedSection] = useState<string | null>('countries')
 
-  // New country form
-  const [newCountry, setNewCountry] = useState({ name: '', country_code: '', numeric_id: '', visited_at: '', notes: '' })
-  // New photo
+  // Country search
+  const [countrySearch, setCountrySearch] = useState('')
+  const [searchResults, setSearchResults] = useState<string[]>([])
+  const [selectedResult, setSelectedResult] = useState<string | null>(null)
+  const [visitedDate, setVisitedDate] = useState('')
+  const [notes, setNotes] = useState('')
+
+  // New photo/vlog/friend
   const [newPhoto, setNewPhoto] = useState({ url: '', caption: '' })
-  // New vlog
   const [newVlog, setNewVlog] = useState({ title: '', url: '', platform: 'youtube' })
-  // New friend
   const [newFriend, setNewFriend] = useState({ name: '', instagram_handle: '' })
+
+  const searchRef = useRef<HTMLDivElement>(null)
 
   const login = () => {
     if (pw === ADMIN_PASSWORD) { setAuthed(true); setPwError(false) }
@@ -50,6 +161,42 @@ export default function AdminPage() {
     supabase.from('countries').select('*').order('visited_at').then(({ data }) => setCountries(data || []))
   }, [authed])
 
+  // Country search filter
+  useEffect(() => {
+    if (!countrySearch.trim()) { setSearchResults([]); return }
+    const q = countrySearch.toLowerCase()
+    const results = Object.keys(COUNTRY_LOOKUP)
+      .filter(name => name.toLowerCase().includes(q))
+      .slice(0, 6)
+    setSearchResults(results)
+  }, [countrySearch])
+
+  const selectSearchResult = (name: string) => {
+    setSelectedResult(name)
+    setCountrySearch(name)
+    setSearchResults([])
+  }
+
+  const addCountry = async () => {
+    if (!selectedResult) return
+    const info = COUNTRY_LOOKUP[selectedResult]
+    if (!info) return
+    setSaving(true)
+    const { data } = await supabase.from('countries').insert({
+      name: selectedResult,
+      country_code: info.code,
+      numeric_id: info.numeric,
+      visited_at: visitedDate || null,
+      notes: notes || null,
+    }).select().single()
+    if (data) setCountries(prev => [...prev, data])
+    setCountrySearch('')
+    setSelectedResult(null)
+    setVisitedDate('')
+    setNotes('')
+    setSaving(false)
+  }
+
   const selectCountry = async (c: Country) => {
     setSelectedCountry(c)
     const [p, v, f] = await Promise.all([
@@ -60,21 +207,6 @@ export default function AdminPage() {
     setPhotos(p.data || [])
     setVlogs(v.data || [])
     setFriends(f.data || [])
-  }
-
-  const addCountry = async () => {
-    if (!newCountry.name || !newCountry.country_code || !newCountry.numeric_id) return
-    setSaving(true)
-    const { data } = await supabase.from('countries').insert({
-      name: newCountry.name,
-      country_code: newCountry.country_code.toUpperCase(),
-      numeric_id: parseInt(newCountry.numeric_id),
-      visited_at: newCountry.visited_at || null,
-      notes: newCountry.notes || null,
-    }).select().single()
-    if (data) setCountries(prev => [...prev, data])
-    setNewCountry({ name: '', country_code: '', numeric_id: '', visited_at: '', notes: '' })
-    setSaving(false)
   }
 
   const deleteCountry = async (id: string) => {
@@ -183,8 +315,6 @@ export default function AdminPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)', fontFamily: 'var(--font-body)', color: 'var(--text-primary)' }}>
-
-      {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)',
@@ -196,9 +326,9 @@ export default function AdminPage() {
         <a href="/" style={{ fontSize: '0.8rem', color: 'var(--glow)', textDecoration: 'none' }}>← View Archive</a>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 0, height: 'calc(100dvh - 73px)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', height: 'calc(100dvh - 73px)' }}>
 
-        {/* Left — Countries list */}
+        {/* Left sidebar */}
         <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: '1rem 0.75rem' }}>
           <Section
             title="Countries"
@@ -206,17 +336,69 @@ export default function AdminPage() {
             expanded={expandedSection === 'countries'}
             onToggle={() => setExpandedSection(e => e === 'countries' ? null : 'countries')}
           >
-            {/* Add country form */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-              <Input placeholder="Country name" value={newCountry.name} onChange={v => setNewCountry(p => ({ ...p, name: v }))} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <Input placeholder="Code (e.g. JPN)" value={newCountry.country_code} onChange={v => setNewCountry(p => ({ ...p, country_code: v }))} />
-                <Input placeholder="Numeric ID" value={newCountry.numeric_id} onChange={v => setNewCountry(p => ({ ...p, numeric_id: v }))} />
+            {/* Country search */}
+            <div style={{ position: 'relative', marginBottom: 8 }} ref={searchRef}>
+              <div style={{ position: 'relative' }}>
+                <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Search country..."
+                  value={countrySearch}
+                  onChange={e => { setCountrySearch(e.target.value); setSelectedResult(null) }}
+                  style={{
+                    width: '100%', padding: '0.6rem 0.75rem 0.6rem 2rem',
+                    borderRadius: 8, border: '1px solid var(--border)',
+                    background: 'var(--muted-bg)', color: 'var(--text-primary)',
+                    fontSize: '0.85rem', outline: 'none', fontFamily: 'var(--font-body)',
+                    boxSizing: 'border-box',
+                  }}
+                />
               </div>
-              <Input placeholder="Visited (YYYY-MM-DD)" value={newCountry.visited_at} onChange={v => setNewCountry(p => ({ ...p, visited_at: v }))} />
-              <Input placeholder="Notes (optional)" value={newCountry.notes} onChange={v => setNewCountry(p => ({ ...p, notes: v }))} />
-              <AddButton onClick={addCountry} loading={saving} label="Add country" />
+              {searchResults.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                  background: 'var(--panel-bg)', border: '1px solid var(--border)',
+                  borderRadius: 8, overflow: 'hidden', marginTop: 4,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                }}>
+                  {searchResults.map(name => {
+                    const info = COUNTRY_LOOKUP[name]
+                    return (
+                      <button key={name} onClick={() => selectSearchResult(name)} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        width: '100%', padding: '0.6rem 0.75rem',
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-primary)', fontSize: '0.85rem',
+                        textAlign: 'left', fontFamily: 'var(--font-body)',
+                      }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--hover-bg)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}
+                      >
+                        <span style={{ fontSize: '1rem' }}>{info.flag}</span>
+                        {name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
+
+            {selectedResult && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+                <div style={{
+                  padding: '0.5rem 0.75rem', borderRadius: 8,
+                  background: 'var(--selected-bg)', border: '1px solid var(--border)',
+                  fontSize: '0.8rem', color: 'var(--glow)',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span>{COUNTRY_LOOKUP[selectedResult]?.flag}</span>
+                  {selectedResult} — ready to add
+                </div>
+                <Input placeholder="Date visited (YYYY-MM-DD)" value={visitedDate} onChange={setVisitedDate} />
+                <Input placeholder="Notes (optional)" value={notes} onChange={setNotes} />
+                <AddButton onClick={addCountry} loading={saving} label="Add country" />
+              </div>
+            )}
 
             {/* Countries list */}
             {countries.map(c => (
@@ -229,6 +411,8 @@ export default function AdminPage() {
                   background: selectedCountry?.id === c.id ? 'var(--selected-bg)' : 'transparent',
                   marginBottom: 2,
                 }}
+                onMouseEnter={e => { if (selectedCountry?.id !== c.id) (e.currentTarget as HTMLElement).style.background = 'var(--hover-bg)' }}
+                onMouseLeave={e => { if (selectedCountry?.id !== c.id) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
               >
                 <span style={{ fontSize: '1rem' }}>{FLAG_MAP[c.country_code] || '🌍'}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -246,7 +430,7 @@ export default function AdminPage() {
           </Section>
         </div>
 
-        {/* Right — Content editor */}
+        {/* Right content */}
         <div style={{ overflowY: 'auto', padding: '1.5rem' }}>
           {!selectedCountry ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', gap: 8 }}>
@@ -264,7 +448,6 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* Tabs */}
               <div style={{ display: 'flex', gap: 4, marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
                 {(['photos', 'vlogs', 'friends'] as const).map(tab => (
                   <button key={tab} onClick={() => setActiveTab(tab)} style={{
@@ -279,7 +462,6 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              {/* Photos tab */}
               {activeTab === 'photos' && (
                 <div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
@@ -307,21 +489,16 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* Vlogs tab */}
               {activeTab === 'vlogs' && (
                 <div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 8, marginBottom: '1rem', alignItems: 'end' }}>
                     <Input placeholder="Title" value={newVlog.title} onChange={v => setNewVlog(p => ({ ...p, title: v }))} />
                     <Input placeholder="URL" value={newVlog.url} onChange={v => setNewVlog(p => ({ ...p, url: v }))} />
-                    <select
-                      value={newVlog.platform}
-                      onChange={e => setNewVlog(p => ({ ...p, platform: e.target.value }))}
-                      style={{
-                        padding: '0.6rem 0.75rem', borderRadius: 8,
-                        border: '1px solid var(--border)', background: 'var(--muted-bg)',
-                        color: 'var(--text-primary)', fontSize: '0.85rem', fontFamily: 'var(--font-body)',
-                      }}
-                    >
+                    <select value={newVlog.platform} onChange={e => setNewVlog(p => ({ ...p, platform: e.target.value }))} style={{
+                      padding: '0.6rem 0.75rem', borderRadius: 8,
+                      border: '1px solid var(--border)', background: 'var(--muted-bg)',
+                      color: 'var(--text-primary)', fontSize: '0.85rem', fontFamily: 'var(--font-body)',
+                    }}>
                       <option value="youtube">YouTube</option>
                       <option value="instagram">Instagram</option>
                       <option value="tiktok">TikTok</option>
@@ -330,18 +507,7 @@ export default function AdminPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {vlogs.map(v => (
-                      <div key={v.id} style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        padding: '0.75rem 1rem', borderRadius: 10, border: '1px solid var(--border)',
-                      }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: '50%',
-                          background: v.platform === 'youtube' ? 'rgba(255,50,50,0.15)' : v.platform === 'instagram' ? 'rgba(200,50,200,0.15)' : 'rgba(0,0,0,0.1)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                          color: v.platform === 'youtube' ? '#ff4444' : v.platform === 'instagram' ? '#c050c0' : 'var(--text-muted)',
-                        }}>
-                          <Youtube size={14} />
-                        </div>
+                      <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem', borderRadius: 10, border: '1px solid var(--border)' }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{v.title}</div>
                           <a href={v.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--glow)', textDecoration: 'none' }}>
@@ -358,7 +524,6 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* Friends tab */}
               {activeTab === 'friends' && (
                 <div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
@@ -368,10 +533,7 @@ export default function AdminPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {friends.map(f => (
-                      <div key={f.id} style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        padding: '0.75rem 1rem', borderRadius: 10, border: '1px solid var(--border)',
-                      }}>
+                      <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem', borderRadius: 10, border: '1px solid var(--border)' }}>
                         <div style={{
                           width: 36, height: 36, borderRadius: '50%',
                           background: 'var(--selected-bg)', display: 'flex', alignItems: 'center',
@@ -383,7 +545,7 @@ export default function AdminPage() {
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{f.name}</div>
                           {f.instagram_handle && (
-                            <a href={`https://instagram.com/${f.instagram_handle.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                            <a href={`https://instagram.com/${f.instagram_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
                               style={{ fontSize: '0.75rem', color: 'var(--glow)', textDecoration: 'none' }}>
                               {f.instagram_handle}
                             </a>
