@@ -7,7 +7,7 @@ import CountryPanel from '@/components/CountryPanel'
 import CountriesList from '@/components/CountriesList'
 import StatsBar from '@/components/StatsBar'
 import { useCountries, useCountryFull, useStats, type Country } from '@/hooks/useData'
-import { Menu, X, Settings } from 'lucide-react'
+import { Menu, X, Settings, Clock } from 'lucide-react'
 
 export default function Home() {
   const { countries, loading: countriesLoading } = useCountries()
@@ -35,6 +35,16 @@ export default function Home() {
     setTargetCountry(null)
   }, [])
 
+  const navLinkStyle = {
+    display: 'flex' as const, alignItems: 'center' as const, gap: 6,
+    fontSize: '0.75rem', color: 'var(--text-muted)' as const,
+    textDecoration: 'none' as const,
+    padding: '6px 12px',
+    border: '1px solid var(--border)' as const,
+    borderRadius: 8,
+    transition: 'all 0.15s',
+  }
+
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
 
@@ -43,25 +53,14 @@ export default function Home() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '1.25rem 1.5rem',
-          borderBottom: '1px solid var(--border)',
-          position: 'relative',
-          zIndex: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)',
+          position: 'relative', zIndex: 10,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div>
-            <h1 style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '1.6rem',
-              fontWeight: 400,
-              letterSpacing: '-0.02em',
-              color: 'var(--text-primary)',
-              lineHeight: 1,
-            }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 400, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1 }}>
               Atlas
             </h1>
             <p style={{ fontSize: '0.65rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: 2 }}>
@@ -70,45 +69,25 @@ export default function Home() {
           </div>
         </div>
 
-        <StatsBar
-          countryCount={countries.length}
-          friendCount={friendCount}
-          photoCount={photoCount}
-        />
+        <StatsBar countryCount={countries.length} friendCount={friendCount} photoCount={photoCount} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <a
-            href="/admin"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: '0.75rem', color: 'var(--text-muted)',
-              textDecoration: 'none',
-              padding: '6px 12px',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = 'var(--glow)'
-              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--glow)'
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
-              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
-            }}
-          >
+          <a href="/timeline" style={navLinkStyle}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--glow)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--glow)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
+            <Clock size={13} />
+            <span className="nav-label">Timeline</span>
+          </a>
+          <a href="/admin" style={navLinkStyle}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--glow)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--glow)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
             <Settings size={13} />
-            <span className="admin-label">Admin</span>
+            <span className="nav-label">Admin</span>
           </a>
 
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            style={{
-              display: 'none',
-              background: 'none', border: '1px solid var(--border)',
-              borderRadius: 8, padding: '6px 10px',
-              cursor: 'pointer', color: 'var(--text-primary)',
-            }}
+            style={{ display: 'none', background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: 'var(--text-primary)' }}
             className="mobile-menu-btn"
             aria-label="Toggle country list"
           >
@@ -125,53 +104,27 @@ export default function Home() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
-          style={{
-            width: '200px',
-            flexShrink: 0,
-            borderRight: '1px solid var(--border)',
-            padding: '1.25rem 0.75rem',
-            overflowY: 'auto',
-          }}
+          style={{ width: '200px', flexShrink: 0, borderRight: '1px solid var(--border)', padding: '1.25rem 0.75rem', overflowY: 'auto' }}
           className="sidebar-desktop"
         >
           {countriesLoading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[0,1,2,3,4].map(i => (
-                <div key={i} className="shimmer" style={{ height: 44, borderRadius: 8 }} />
-              ))}
+              {[0,1,2,3,4].map(i => <div key={i} className="shimmer" style={{ height: 44, borderRadius: 8 }} />)}
             </div>
           ) : (
-            <CountriesList
-              countries={countries}
-              selectedId={selectedCountryId}
-              onSelect={handleSidebarSelect}
-            />
+            <CountriesList countries={countries} selectedId={selectedCountryId} onSelect={handleSidebarSelect} />
           )}
         </motion.aside>
 
         {/* Globe */}
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '2rem',
-          position: 'relative',
-        }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', position: 'relative' }}>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1, duration: 0.5 }}
             style={{ width: '100%', maxWidth: 500, position: 'relative' }}
           >
-            <div style={{
-              position: 'absolute',
-              inset: '-20%',
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(158,110,42,0.12) 0%, transparent 70%)',
-              pointerEvents: 'none',
-            }} />
+            <div style={{ position: 'absolute', inset: '-20%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(158,110,42,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
             <Globe
               countries={countries}
               selectedId={selectedCountryId}
@@ -184,24 +137,15 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            style={{
-              marginTop: '1rem',
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)',
-              letterSpacing: '0.06em',
-            }}
+            style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.06em' }}
           >
-            {selectedCountryId ? 'Press Esc to close' : 'Drag to rotate · Click a country to explore'}
+            {selectedCountryId ? 'Press Esc to close' : 'Drag to rotate · Scroll to zoom · Click a country'}
           </motion.p>
         </div>
 
         {/* Right panel */}
         <div style={{ position: 'relative', flexShrink: 0, width: selectedCountryId || panelLoading ? 340 : 0, transition: 'width 0.3s ease' }}>
-          <CountryPanel
-            data={selectedData}
-            loading={panelLoading}
-            onClose={handleClose}
-          />
+          <CountryPanel data={selectedData} loading={panelLoading} onClose={handleClose} />
         </div>
       </div>
 
@@ -209,7 +153,7 @@ export default function Home() {
         @media (max-width: 768px) {
           .sidebar-desktop { display: none !important; }
           .mobile-menu-btn { display: flex !important; }
-          .admin-label { display: none; }
+          .nav-label { display: none; }
         }
       `}</style>
     </div>
