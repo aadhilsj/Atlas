@@ -18,7 +18,7 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef = useRef({
     world: null as any,
-    rotation: [15, -20, 0] as [number, number, number],
+    rotation: [-15, -45, 0] as [number, number, number],
     dragging: false,
     lastPos: [0, 0] as [number, number],
     hovered: null as Country | null,
@@ -88,13 +88,13 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
       path(f)
 
       if (isSelected) {
-        ctx.fillStyle = isDark ? '#e8b86d' : '#c8913a'
+        ctx.fillStyle = isDark ? '#ffd98a' : '#e8a030'
       } else if (isHovered) {
-        ctx.fillStyle = isDark ? '#d4a55a' : '#d4a020'
+        ctx.fillStyle = isDark ? '#f0c46a' : '#d4901a'
       } else if (visited) {
-        ctx.fillStyle = isDark ? '#b8914e' : '#9e7a30'
+        ctx.fillStyle = isDark ? '#d4a040' : '#b87c20'
       } else {
-        ctx.fillStyle = isDark ? '#2a3530' : '#d4cfc4'
+        ctx.fillStyle = isDark ? '#1e2820' : '#d4cfc4'
       }
       ctx.fill()
 
