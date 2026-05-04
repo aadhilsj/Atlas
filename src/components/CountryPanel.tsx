@@ -168,15 +168,23 @@ export default function CountryPanel({ data, loading, onClose }: CountryPanelPro
                     }}>
                       {data?.name}
                     </h2>
-                    {data && data.trips.length > 0 && (
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <MapPin size={10} />
-                        {data.trips.length} {data.trips.length === 1 ? 'trip' : 'trips'}
-                        {data.trips.flatMap(t => t.cities).length > 0 && (
-                          <> · {data.trips.flatMap(t => t.cities).length} cities</>
-                        )}
-                      </p>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                      {data?.residence_status === 'living' && (
+                        <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: 99, background: 'rgba(77,216,176,0.12)', color: '#4dd8b0', border: '1px solid rgba(77,216,176,0.25)' }}>🏠 Living here</span>
+                      )}
+                      {data?.residence_status === 'lived' && (
+                        <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: 99, background: 'rgba(74,158,255,0.12)', color: '#4a9eff', border: '1px solid rgba(74,158,255,0.25)' }}>📦 Lived here</span>
+                      )}
+                      {data && data.trips.length > 0 && (
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MapPin size={10} />
+                          {data.trips.length} {data.trips.length === 1 ? 'trip' : 'trips'}
+                          {data.trips.flatMap(t => t.cities).length > 0 && (
+                            <> · {data.trips.flatMap(t => t.cities).length} cities</>
+                          )}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
