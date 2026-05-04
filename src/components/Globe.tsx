@@ -10,11 +10,21 @@ interface GlobeProps {
   countries: Country[]
   selectedId: string | null
   onSelect: (country: Country | null) => void
+  targetCountry?: Country | null
 }
 
-const NUMERIC_MAP: Record<number, true> = {}
+const CENTROIDS: Record<string, [number, number]> = {
+  NOR: [15, 65], LKA: [81, 8], CHE: [8, 47], GBR: [-2, 54],
+  FRA: [2, 46], ITA: [12, 42], DEU: [10, 51], NLD: [5, 52],
+  ESP: [-4, 40], PRT: [-8, 39], USA: [-95, 38], JPN: [138, 36],
+  AUS: [133, -27], CAN: [-96, 56], IND: [78, 20], SGP: [104, 1],
+  THA: [101, 15], ARE: [54, 24], TUR: [35, 39], GRC: [22, 39],
+  IDN: [114, -2], MYS: [110, 4], PHL: [122, 13], VNM: [108, 16],
+  ZAF: [25, -29], KEN: [38, 1], MAR: [-7, 32], EGY: [30, 27],
+  BRA: [-51, -10], ARG: [-64, -34], MEX: [-102, 24], COL: [-74, 4],
+}
 
-export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
+export default function Globe({ countries, selectedId, onSelect, targetCountry }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef = useRef({
     world: null as any,
@@ -60,7 +70,6 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
 
     ctx.clearRect(0, 0, W, H)
 
-    // Ocean
     ctx.beginPath()
     path({ type: 'Sphere' } as any)
     const oceanGrad = ctx.createRadialGradient(W * 0.4, H * 0.35, 0, W / 2, H / 2, scale)
@@ -69,14 +78,12 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
     ctx.fillStyle = oceanGrad
     ctx.fill()
 
-    // Graticule
     ctx.beginPath()
     path(d3.geoGraticule()())
     ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'
     ctx.lineWidth = 0.5
     ctx.stroke()
 
-    // Countries
     const features = stateRef.current.world.features
     features.forEach((f: any) => {
       const numId = parseInt(f.id)
@@ -103,14 +110,12 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
       ctx.stroke()
     })
 
-    // Globe border
     ctx.beginPath()
     path({ type: 'Sphere' } as any)
     ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.15)'
     ctx.lineWidth = 1
     ctx.stroke()
 
-    // Atmosphere glow
     ctx.beginPath()
     path({ type: 'Sphere' } as any)
     const atmo = ctx.createRadialGradient(W * 0.38, H * 0.32, scale * 0.9, W / 2, H / 2, scale * 1.05)
@@ -119,6 +124,41 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
     ctx.fillStyle = atmo
     ctx.fill()
   }, [])
+
+  const rotateTo = useCallback((lon: number, lat: number) => {
+    const state = stateRef.current
+    if (state.animId) cancelAnimationFrame(state.animId)
+
+    const startRot: [number, number, number] = [...state.rotation] as [number, number, number]
+    const targetRot: [number, number, number] = [-lon, -lat, 0]
+
+    let dLon = targetRot[0] - startRot[0]
+    while (dLon > 180) dLon -= 360
+    while (dLon < -180) dLon += 360
+
+    const start = performance.now()
+    const duration = 900
+
+    const animate = (now: number) => {
+      const t = Math.min((now - start) / duration, 1)
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+      state.rotation = [
+        startRot[0] + dLon * ease,
+        startRot[1] + (targetRot[1] - startRot[1]) * ease,
+        0,
+      ]
+      draw()
+      if (t < 1) state.animId = requestAnimationFrame(animate)
+    }
+
+    state.animId = requestAnimationFrame(animate)
+  }, [draw])
+
+  useEffect(() => {
+    if (!targetCountry) return
+    const centroid = CENTROIDS[targetCountry.country_code]
+    if (centroid) rotateTo(centroid[0], centroid[1])
+  }, [targetCountry, rotateTo])
 
   const getCountryAtPoint = useCallback((x: number, y: number): Country | null => {
     const canvas = canvasRef.current
@@ -195,6 +235,7 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
     }
 
     const onMouseDown = (e: MouseEvent) => {
+      if (stateRef.current.animId) cancelAnimationFrame(stateRef.current.animId)
       stateRef.current.dragging = true
       stateRef.current.lastPos = [e.clientX, e.clientY]
       canvas.style.cursor = 'grabbing'
@@ -215,6 +256,7 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
     }
 
     const onTouchStart = (e: TouchEvent) => {
+      if (stateRef.current.animId) cancelAnimationFrame(stateRef.current.animId)
       const t = e.touches[0]
       stateRef.current.dragging = true
       stateRef.current.lastPos = [t.clientX, t.clientY]
@@ -253,7 +295,6 @@ export default function Globe({ countries, selectedId, onSelect }: GlobeProps) {
     }
   }, [draw, getCountryAtPoint, onSelect])
 
-  // Redraw when selection changes
   useEffect(() => { draw() }, [selectedId, draw])
 
   return (
