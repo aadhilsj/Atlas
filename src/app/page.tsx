@@ -1,106 +1,52 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { supabase } from '@/lib/supabase'
-import { Globe, ArrowLeft, MapPin, Home, Package } from 'lucide-react'
+import Globe from '@/components/Globe'
+import CountryPanel from '@/components/CountryPanel'
+import CountriesList from '@/components/CountriesList'
+import StatsBar from '@/components/StatsBar'
+import { useCountries, useCountryFull, useStats, type Country } from '@/hooks/useData'
+import { Menu, X, Settings, Clock } from 'lucide-react'
 
-const FLAG_MAP: Record<string, string> = {
-  NOR: '🇳🇴', LKA: '🇱🇰', CHE: '🇨🇭', GBR: '🇬🇧', FRA: '🇫🇷',
-  ITA: '🇮🇹', DEU: '🇩🇪', NLD: '🇳🇱', ESP: '🇪🇸', PRT: '🇵🇹',
-  USA: '🇺🇸', JPN: '🇯🇵', AUS: '🇦🇺', CAN: '🇨🇦', IND: '🇮🇳',
-  SGP: '🇸🇬', THA: '🇹🇭', ARE: '🇦🇪', TUR: '🇹🇷', GRC: '🇬🇷',
-  HUN: '🇭🇺', ISL: '🇮🇸', DNK: '🇩🇰', SWE: '🇸🇪', FIN: '🇫🇮',
-  POL: '🇵🇱', CZE: '🇨🇿', AUT: '🇦🇹', BEL: '🇧🇪', HRV: '🇭🇷',
-}
+export default function Home() {
+  const { countries, loading: countriesLoading } = useCountries()
+  const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null)
+  const [targetCountry, setTargetCountry] = useState<Country | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { data: selectedData, loading: panelLoading } = useCountryFull(selectedCountryId)
+  const { friendCount, photoCount } = useStats(countries)
 
-type City = { id: string; name: string }
-type TripEntry = {
-  id: string
-  title: string | null
-  start_date: string | null
-  end_date: string | null
-  notes: string | null
-  cities: City[]
-  country: {
-    id: string
-    name: string
-    country_code: string
-    residence_status: string
-  }
-}
-
-type YearGroup = {
-  year: number
-  trips: TripEntry[]
-}
-
-function formatDateRange(start: string | null, end: string | null) {
-  if (!start) return null
-  const s = new Date(start)
-  const sStr = s.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-  if (!end || end === start) return sStr
-  const e = new Date(end)
-  const eStr = e.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-  return `${sStr} – ${eStr}`
-}
-
-export default function TimelinePage() {
-  const [yearGroups, setYearGroups] = useState<YearGroup[]>([])
-  const [loading, setLoading] = useState(true)
-  const [totalCountries, setTotalCountries] = useState(0)
-  const [totalTrips, setTotalTrips] = useState(0)
-
-  useEffect(() => {
-    async function load() {
-      const { data: trips } = await supabase
-        .from('trips')
-        .select('*, countries(id, name, country_code, residence_status)')
-        .order('start_date', { ascending: true })
-
-      if (!trips) { setLoading(false); return }
-
-      const tripsWithCities: TripEntry[] = await Promise.all(
-        trips.map(async (t: any) => {
-          const { data: cities } = await supabase
-            .from('cities')
-            .select('id, name')
-            .eq('trip_id', t.id)
-          return {
-            id: t.id,
-            title: t.title,
-            start_date: t.start_date,
-            end_date: t.end_date,
-            notes: t.notes,
-            cities: cities || [],
-            country: t.countries,
-          }
-        })
-      )
-
-      // Group by year
-      const byYear: Record<number, TripEntry[]> = {}
-      tripsWithCities.forEach(t => {
-        if (!t.start_date) return
-        const year = new Date(t.start_date).getFullYear()
-        if (!byYear[year]) byYear[year] = []
-        byYear[year].push(t)
-      })
-
-      const groups = Object.entries(byYear)
-        .map(([year, trips]) => ({ year: parseInt(year), trips }))
-        .sort((a, b) => b.year - a.year) // newest first
-
-      setYearGroups(groups)
-      setTotalTrips(tripsWithCities.length)
-      setTotalCountries(new Set(tripsWithCities.map(t => t.country?.id)).size)
-      setLoading(false)
-    }
-    load()
+  const handleSelect = useCallback((country: Country | null) => {
+    if (!country) { setSelectedCountryId(null); setTargetCountry(null); return }
+    setSelectedCountryId(prev => prev === country.id ? null : country.id)
+    setTargetCountry(country)
+    setSidebarOpen(false)
   }, [])
 
+  const handleSidebarSelect = useCallback((country: Country) => {
+    setSelectedCountryId(country.id)
+    setTargetCountry(country)
+    setSidebarOpen(false)
+  }, [])
+
+  const handleClose = useCallback(() => {
+    setSelectedCountryId(null)
+    setTargetCountry(null)
+  }, [])
+
+  const navLinkStyle = {
+    display: 'flex' as const, alignItems: 'center' as const, gap: 6,
+    fontSize: '0.75rem', color: 'var(--text-muted)' as const,
+    textDecoration: 'none' as const,
+    padding: '6px 12px',
+    border: '1px solid var(--border)' as const,
+    borderRadius: 8,
+    transition: 'all 0.15s',
+  }
+
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', fontFamily: 'var(--font-body)', color: 'var(--text-primary)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
 
       {/* Header */}
       <motion.header
@@ -109,19 +55,13 @@ export default function TimelinePage() {
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)',
+          position: 'relative', zIndex: 10,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <a href="/" style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            fontSize: '0.8rem', color: 'var(--text-muted)',
-            textDecoration: 'none',
-          }}>
-            <ArrowLeft size={14} /> Globe
-          </a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 400, letterSpacing: '-0.02em', lineHeight: 1 }}>
-              Timeline
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 400, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1 }}>
+              Atlas
             </h1>
             <p style={{ fontSize: '0.65rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: 2 }}>
               Travel Archive
@@ -129,158 +69,93 @@ export default function TimelinePage() {
           </div>
         </div>
 
-        {/* Stats */}
-        {!loading && (
-          <div style={{ display: 'flex', gap: '2rem' }}>
-            {[
-              { value: totalCountries, label: 'countries' },
-              { value: totalTrips, label: 'trips' },
-              { value: yearGroups.length, label: 'years' },
-            ].map(s => (
-              <div key={s.label} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 400, color: 'var(--glow)', lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: 2 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        )}
+        <StatsBar countryCount={countries.length} friendCount={friendCount} photoCount={photoCount} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <a href="/timeline" style={navLinkStyle}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--glow)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--glow)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
+            <Clock size={13} />
+            <span className="nav-label">Timeline</span>
+          </a>
+          <a href="/admin" style={navLinkStyle}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--glow)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--glow)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
+            <Settings size={13} />
+            <span className="nav-label">Admin</span>
+          </a>
+
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            style={{ display: 'none', background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: 'var(--text-primary)' }}
+            className="mobile-menu-btn"
+            aria-label="Toggle country list"
+          >
+            {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
+          </button>
+        </div>
       </motion.header>
 
-      {/* Content */}
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '2rem 1.5rem' }}>
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {[0,1,2].map(i => (
-              <div key={i}>
-                <div className="shimmer" style={{ width: 60, height: 20, borderRadius: 4, marginBottom: 16 }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {[0,1].map(j => <div key={j} className="shimmer" style={{ height: 72, borderRadius: 12 }} />)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : yearGroups.length === 0 ? (
-          <div style={{ textAlign: 'center', paddingTop: '4rem', color: 'var(--text-muted)' }}>
-            <Globe size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
-            <p style={{ fontSize: '0.9rem' }}>No trips yet — add your first country in admin.</p>
-          </div>
-        ) : (
-          yearGroups.map((group, gi) => (
-            <motion.div
-              key={group.year}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: gi * 0.06 }}
-              style={{ marginBottom: '3rem' }}
-            >
-              {/* Year heading */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                marginBottom: '1rem',
-              }}>
-                <span style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '2.5rem', fontWeight: 400,
-                  color: 'var(--glow)', lineHeight: 1,
-                  letterSpacing: '-0.03em',
-                }}>
-                  {group.year}
-                </span>
-                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  {group.trips.length} {group.trips.length === 1 ? 'trip' : 'trips'}
-                </span>
-              </div>
+      {/* Main layout */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
 
-              {/* Trips */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
-                {group.trips.map((trip, ti) => (
-                  <motion.div
-                    key={trip.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: gi * 0.06 + ti * 0.04 }}
-                    style={{
-                      position: 'relative',
-                      background: 'var(--panel-bg)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 12,
-                      padding: '1rem 1.25rem',
-                      marginLeft: 16,
-                    }}
-                  >
-                    {/* Timeline dot */}
-                    <div style={{
-                      position: 'absolute', left: -23,
-                      top: '50%', transform: 'translateY(-50%)',
-                      width: 10, height: 10, borderRadius: '50%',
-                      background: trip.country?.residence_status === 'living' ? '#4dd8b0'
-                        : trip.country?.residence_status === 'lived' ? '#4a9eff'
-                        : 'var(--glow)',
-                      border: '2px solid var(--bg)',
-                    }} />
+        {/* Left sidebar */}
+        <motion.aside
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          style={{ width: '200px', flexShrink: 0, borderRight: '1px solid var(--border)', padding: '1.25rem 0.75rem', overflowY: 'auto' }}
+          className="sidebar-desktop"
+        >
+          {countriesLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[0,1,2,3,4].map(i => <div key={i} className="shimmer" style={{ height: 44, borderRadius: 8 }} />)}
+            </div>
+          ) : (
+            <CountriesList countries={countries} selectedId={selectedCountryId} onSelect={handleSidebarSelect} />
+          )}
+        </motion.aside>
 
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                      {/* Flag */}
-                      <span style={{ fontSize: '1.6rem', lineHeight: 1, flexShrink: 0, marginTop: 2 }}>
-                        {FLAG_MAP[trip.country?.country_code] || '🌍'}
-                      </span>
+        {/* Globe */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', position: 'relative' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+            style={{ width: '100%', maxWidth: 500, position: 'relative' }}
+          >
+            <div style={{ position: 'absolute', inset: '-20%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(158,110,42,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+            <Globe
+              countries={countries}
+              selectedId={selectedCountryId}
+              onSelect={handleSelect}
+              targetCountry={targetCountry}
+            />
+          </motion.div>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-primary)' }}>
-                            {trip.country?.name}
-                          </span>
-                          {trip.title && trip.title !== 'First visit' && (
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                              {trip.title}
-                            </span>
-                          )}
-                          {trip.country?.residence_status === 'living' && (
-                            <span style={{ fontSize: '0.65rem', padding: '1px 7px', borderRadius: 99, background: 'rgba(77,216,176,0.12)', color: '#4dd8b0', border: '1px solid rgba(77,216,176,0.2)' }}>🏠 living</span>
-                          )}
-                          {trip.country?.residence_status === 'lived' && (
-                            <span style={{ fontSize: '0.65rem', padding: '1px 7px', borderRadius: 99, background: 'rgba(74,158,255,0.12)', color: '#4a9eff', border: '1px solid rgba(74,158,255,0.2)' }}>📦 lived</span>
-                          )}
-                        </div>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.06em' }}
+          >
+            {selectedCountryId ? 'Press Esc to close' : 'Drag to rotate · Scroll to zoom · Click a country'}
+          </motion.p>
+        </div>
 
-                        {/* Date */}
-                        {trip.start_date && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 3 }}>
-                            {formatDateRange(trip.start_date, trip.end_date)}
-                          </div>
-                        )}
-
-                        {/* Cities */}
-                        {trip.cities.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-                            {trip.cities.map(c => (
-                              <span key={c.id} style={{
-                                fontSize: '0.72rem', padding: '2px 9px', borderRadius: 99,
-                                background: 'rgba(77,216,176,0.08)', color: '#4dd8b0',
-                                border: '1px solid rgba(77,216,176,0.2)',
-                              }}>
-                                {c.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Notes */}
-                        {trip.notes && (
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.6, fontStyle: 'italic' }}>
-                            {trip.notes}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          ))
-        )}
+        {/* Right panel */}
+        <div style={{ position: 'relative', flexShrink: 0, width: selectedCountryId || panelLoading ? 340 : 0, transition: 'width 0.3s ease' }}>
+          <CountryPanel data={selectedData} loading={panelLoading} onClose={handleClose} />
+        </div>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .sidebar-desktop { display: none !important; }
+          .mobile-menu-btn { display: flex !important; }
+          .nav-label { display: none; }
+        }
+      `}</style>
     </div>
   )
 }
