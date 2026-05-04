@@ -28,12 +28,15 @@ const CENTROIDS: Record<string, [number, number]> = {
 
 export default function Globe({ countries, selectedId, onSelect, targetCountry }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
   const stateRef = useRef({
     world: null as any,
     rotation: [-15, -45, 0] as [number, number, number],
     dragging: false,
     lastPos: [0, 0] as [number, number],
     hovered: null as Country | null,
+    mouseX: 0,
+    mouseY: 0,
     animId: 0,
     countries: [] as Country[],
     selectedId: null as string | null,
@@ -52,6 +55,29 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
 
   const getScale = useCallback((canvas: HTMLCanvasElement) => {
     return Math.min(canvas.width, canvas.height) * 0.44 * stateRef.current.zoom
+  }, [])
+
+  const updateTooltip = useCallback(() => {
+    const tooltip = tooltipRef.current
+    if (!tooltip) return
+    const { hovered, mouseX, mouseY } = stateRef.current
+    if (!hovered) {
+      tooltip.style.opacity = '0'
+      return
+    }
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    // Position tooltip relative to canvas parent
+    const px = mouseX - rect.left
+    const py = mouseY - rect.top
+    tooltip.style.opacity = '1'
+    tooltip.style.left = `${px + 14}px`
+    tooltip.style.top = `${py - 12}px`
+
+    const year = hovered.visited_at ? new Date(hovered.visited_at).getFullYear() : null
+    const badge = hovered.residence_status === 'living' ? '🏠' : hovered.residence_status === 'lived' ? '📦' : year ? `${year}` : ''
+    tooltip.innerHTML = `<span style="font-weight:500">${hovered.name}</span>${badge ? `<span style="opacity:0.6;margin-left:6px;font-size:0.75em">${badge}</span>` : ''}`
   }, [])
 
   const draw = useCallback(() => {
@@ -76,6 +102,7 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
 
     ctx.clearRect(0, 0, W, H)
 
+    // Ocean
     ctx.beginPath()
     path({ type: 'Sphere' } as any)
     const oceanGrad = ctx.createRadialGradient(W * 0.4, H * 0.35, 0, W / 2, H / 2, scale)
@@ -84,14 +111,15 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     ctx.fillStyle = oceanGrad
     ctx.fill()
 
+    // Graticule
     ctx.beginPath()
     path(d3.geoGraticule()())
     ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'
     ctx.lineWidth = 0.5
     ctx.stroke()
 
-    const features = stateRef.current.world.features
-    features.forEach((f: any) => {
+    // Countries
+    stateRef.current.world.features.forEach((f: any) => {
       const numId = parseInt(f.id)
       const visited = visitedSet.current.get(numId)
       const isSelected = visited && visited.id === selectedId
@@ -110,18 +138,19 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
         ctx.fillStyle = isDark ? '#1e2820' : '#d4cfc4'
       }
       ctx.fill()
-
       ctx.strokeStyle = isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.5)'
       ctx.lineWidth = 0.4
       ctx.stroke()
     })
 
+    // Globe border
     ctx.beginPath()
     path({ type: 'Sphere' } as any)
     ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.15)'
     ctx.lineWidth = 1
     ctx.stroke()
 
+    // Atmosphere
     ctx.beginPath()
     path({ type: 'Sphere' } as any)
     const atmo = ctx.createRadialGradient(W * 0.38, H * 0.32, scale * 0.9, W / 2, H / 2, scale * 1.05)
@@ -129,7 +158,9 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     atmo.addColorStop(1, isDark ? 'rgba(232,184,109,0.08)' : 'rgba(180,140,60,0.12)')
     ctx.fillStyle = atmo
     ctx.fill()
-  }, [getScale])
+
+    updateTooltip()
+  }, [getScale, updateTooltip])
 
   const rotateTo = useCallback((lon: number, lat: number) => {
     const state = stateRef.current
@@ -206,6 +237,9 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       const rect = canvas.getBoundingClientRect()
       const x = (e.clientX - rect.left) * (canvas.width / rect.width)
       const y = (e.clientY - rect.top) * (canvas.height / rect.height)
+      stateRef.current.mouseX = e.clientX
+      stateRef.current.mouseY = e.clientY
+
       if (stateRef.current.dragging) {
         const dx = e.clientX - stateRef.current.lastPos[0]
         const dy = e.clientY - stateRef.current.lastPos[1]
@@ -220,7 +254,15 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
         stateRef.current.hovered = found
         canvas.style.cursor = found ? 'pointer' : 'grab'
         draw()
+      } else {
+        updateTooltip()
       }
+    }
+
+    const onMouseLeave = () => {
+      stateRef.current.hovered = null
+      if (tooltipRef.current) tooltipRef.current.style.opacity = '0'
+      draw()
     }
 
     const onMouseDown = (e: MouseEvent) => {
@@ -243,7 +285,6 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       onSelect(getCountryAtPoint(x, y))
     }
 
-    // Scroll to zoom
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const delta = e.deltaY > 0 ? -0.08 : 0.08
@@ -251,7 +292,6 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       draw()
     }
 
-    // Touch drag
     const onTouchStart = (e: TouchEvent) => {
       if (stateRef.current.animId) cancelAnimationFrame(stateRef.current.animId)
       if (e.touches.length === 1) {
@@ -287,6 +327,7 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     const onTouchEnd = () => { stateRef.current.dragging = false }
 
     canvas.addEventListener('mousemove', onMouseMove)
+    canvas.addEventListener('mouseleave', onMouseLeave)
     canvas.addEventListener('mousedown', onMouseDown)
     window.addEventListener('mouseup', onMouseUp)
     canvas.addEventListener('click', onClick)
@@ -298,6 +339,7 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
     return () => {
       ro.disconnect()
       canvas.removeEventListener('mousemove', onMouseMove)
+      canvas.removeEventListener('mouseleave', onMouseLeave)
       canvas.removeEventListener('mousedown', onMouseDown)
       window.removeEventListener('mouseup', onMouseUp)
       canvas.removeEventListener('click', onClick)
@@ -306,15 +348,37 @@ export default function Globe({ countries, selectedId, onSelect, targetCountry }
       canvas.removeEventListener('touchmove', onTouchMove)
       canvas.removeEventListener('touchend', onTouchEnd)
     }
-  }, [draw, getCountryAtPoint, onSelect])
+  }, [draw, getCountryAtPoint, onSelect, updateTooltip])
 
   useEffect(() => { draw() }, [selectedId, draw])
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ borderRadius: '50%', cursor: 'grab', display: 'block', width: '100%', height: 'auto' }}
-      aria-label="Interactive globe showing visited countries"
-    />
+    <div style={{ position: 'relative', width: '100%' }}>
+      <canvas
+        ref={canvasRef}
+        style={{ borderRadius: '50%', cursor: 'grab', display: 'block', width: '100%', height: 'auto' }}
+        aria-label="Interactive globe showing visited countries"
+      />
+      {/* Hover tooltip */}
+      <div
+        ref={tooltipRef}
+        style={{
+          position: 'absolute',
+          pointerEvents: 'none',
+          opacity: 0,
+          transition: 'opacity 0.15s',
+          background: 'var(--panel-bg)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: '5px 10px',
+          fontSize: '0.8rem',
+          color: 'var(--text-primary)',
+          whiteSpace: 'nowrap',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          zIndex: 10,
+          fontFamily: 'var(--font-body)',
+        }}
+      />
+    </div>
   )
 }
