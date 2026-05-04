@@ -9,6 +9,7 @@ export type Country = {
   visited_at: string | null
   cover_photo_url: string | null
   notes: string | null
+  residence_status: 'visited' | 'living' | 'lived'
 }
 
 export type Photo = {
