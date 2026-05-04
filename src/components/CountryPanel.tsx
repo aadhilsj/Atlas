@@ -31,29 +31,19 @@ function formatDate(d: string | null) {
 
 function TripCard({ trip }: { trip: Trip }) {
   const [expanded, setExpanded] = useState(false)
-  const hasDetail = (trip.notes || trip.cities.length > 0)
 
   return (
-    <div style={{
-      border: '1px solid var(--border)',
-      borderRadius: 10,
-      overflow: 'hidden',
-    }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
       <div
-        onClick={() => hasDetail && setExpanded(e => !e)}
+        onClick={() => setExpanded(e => !e)}
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '0.75rem 1rem',
-          cursor: hasDetail ? 'pointer' : 'default',
+          cursor: 'pointer',
           background: 'var(--muted-bg)',
         }}
       >
-        {/* Timeline dot */}
-        <div style={{
-          width: 8, height: 8, borderRadius: '50%',
-          background: 'var(--glow)', flexShrink: 0,
-        }} />
-
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--glow)', flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>
             {trip.title || 'Trip'}
@@ -64,31 +54,11 @@ function TripCard({ trip }: { trip: Trip }) {
             {trip.end_date && trip.end_date !== trip.start_date && ` → ${formatDate(trip.end_date)}`}
           </div>
         </div>
-
-        {/* City chips preview */}
-        {trip.cities.length > 0 && !expanded && (
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 120 }}>
-            {trip.cities.slice(0, 2).map(c => (
-              <span key={c.id} style={{
-                fontSize: '0.65rem', padding: '2px 8px', borderRadius: 99,
-                background: 'rgba(77,216,176,0.12)', color: '#4dd8b0',
-                border: '1px solid rgba(77,216,176,0.25)',
-              }}>{c.name}</span>
-            ))}
-            {trip.cities.length > 2 && (
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>+{trip.cities.length - 2}</span>
-            )}
-          </div>
-        )}
-
-        {hasDetail && (
-          <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
-            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          </span>
-        )}
+        <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+          {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </span>
       </div>
 
-      {/* Expanded detail */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -113,6 +83,9 @@ function TripCard({ trip }: { trip: Trip }) {
                   </div>
                 </div>
               )}
+              {trip.cities.length === 0 && !trip.notes && (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No details added yet.</p>
+              )}
               {trip.notes && (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6, fontStyle: 'italic' }}>
                   {trip.notes}
@@ -132,6 +105,10 @@ export default function CountryPanel({ data, loading, onClose }: CountryPanelPro
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // All unique cities across all trips
+  const allCities = data?.trips.flatMap(t => t.cities) || []
+  const uniqueCities = allCities.filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i)
 
   return (
     <AnimatePresence>
@@ -179,9 +156,7 @@ export default function CountryPanel({ data, loading, onClose }: CountryPanelPro
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                           <MapPin size={10} />
                           {data.trips.length} {data.trips.length === 1 ? 'trip' : 'trips'}
-                          {data.trips.flatMap(t => t.cities).length > 0 && (
-                            <> · {data.trips.flatMap(t => t.cities).length} cities</>
-                          )}
+                          {uniqueCities.length > 0 && <> · {uniqueCities.length} {uniqueCities.length === 1 ? 'city' : 'cities'}</>}
                         </p>
                       )}
                     </div>
@@ -202,15 +177,26 @@ export default function CountryPanel({ data, loading, onClose }: CountryPanelPro
             </button>
           </div>
 
-          {/* Notes */}
-          {data?.notes && (
-            <p style={{
-              fontSize: '0.875rem', color: 'var(--text-muted)',
-              lineHeight: 1.6, fontStyle: 'italic',
-              borderLeft: '2px solid var(--glow)', paddingLeft: '0.75rem',
-            }}>
-              {data.notes}
-            </p>
+          {/* Cities */}
+          {(loading || uniqueCities.length > 0) && (
+            <section>
+              <SectionLabel icon={<MapPin size={12} />} label="Cities" count={uniqueCities.length} color="#4dd8b0" />
+              {loading ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                  {[0,1,2].map(i => <div key={i} className="shimmer" style={{ width: 70, height: 26, borderRadius: 99 }} />)}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                  {uniqueCities.map(c => (
+                    <span key={c.id} style={{
+                      fontSize: '0.8rem', padding: '4px 12px', borderRadius: 99,
+                      background: 'rgba(77,216,176,0.1)', color: '#4dd8b0',
+                      border: '1px solid rgba(77,216,176,0.25)',
+                    }}>{c.name}</span>
+                  ))}
+                </div>
+              )}
+            </section>
           )}
 
           {/* Trips */}
@@ -219,18 +205,11 @@ export default function CountryPanel({ data, loading, onClose }: CountryPanelPro
               <SectionLabel icon={<Calendar size={12} />} label="Trips" count={data?.trips.length} color="#e8b86d" />
               {loading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                  {[0,1].map(i => <div key={i} className="shimmer" style={{ height: 60, borderRadius: 10 }} />)}
+                  {[0,1].map(i => <div key={i} className="shimmer" style={{ height: 56, borderRadius: 10 }} />)}
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10, position: 'relative' }}>
-                  {/* Timeline line */}
-                  <div style={{
-                    position: 'absolute', left: 17, top: 12, bottom: 12,
-                    width: 1, background: 'var(--border)',
-                  }} />
-                  {data?.trips.map(trip => (
-                    <TripCard key={trip.id} trip={trip} />
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                  {data?.trips.map(trip => <TripCard key={trip.id} trip={trip} />)}
                 </div>
               )}
             </section>
@@ -249,11 +228,7 @@ export default function CountryPanel({ data, loading, onClose }: CountryPanelPro
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginTop: 10 }}>
                 {data?.photos.map(p => (
                   <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer"
-                    style={{
-                      aspectRatio: '1', borderRadius: 8, overflow: 'hidden',
-                      display: 'block', background: 'var(--muted-bg)',
-                      border: '1px solid var(--border)',
-                    }}>
+                    style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', display: 'block', background: 'var(--muted-bg)', border: '1px solid var(--border)' }}>
                     <img src={p.url} alt={p.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </a>
                 ))}
@@ -271,26 +246,16 @@ export default function CountryPanel({ data, loading, onClose }: CountryPanelPro
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                 {data?.vlogs.map(v => {
-                  const style = PLATFORM_COLORS[v.platform] || PLATFORM_COLORS.youtube
+                  const s = PLATFORM_COLORS[v.platform] || PLATFORM_COLORS.youtube
                   return (
                     <a key={v.id} href={v.url} target="_blank" rel="noopener noreferrer"
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        padding: '0.75rem', borderRadius: 10,
-                        border: '1px solid var(--border)',
-                        textDecoration: 'none', color: 'var(--text-primary)',
-                        background: 'var(--muted-bg)',
-                      }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        background: style.bg, display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', color: style.color, flexShrink: 0,
-                      }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem', borderRadius: 10, border: '1px solid var(--border)', textDecoration: 'none', color: 'var(--text-primary)', background: 'var(--muted-bg)' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color, flexShrink: 0 }}>
                         <Youtube size={14} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>
-                        <div style={{ fontSize: '0.7rem', color: style.color, textTransform: 'capitalize' }}>{v.platform}</div>
+                        <div style={{ fontSize: '0.7rem', color: s.color, textTransform: 'capitalize' }}>{v.platform}</div>
                       </div>
                       <ExternalLink size={13} color="var(--text-muted)" />
                     </a>
@@ -313,23 +278,12 @@ export default function CountryPanel({ data, loading, onClose }: CountryPanelPro
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                 {data?.friends.map(f => (
                   f.instagram_handle ? (
-                    <a key={f.id}
-                      href={`https://instagram.com/${f.instagram_handle.replace('@','')}`}
-                      target="_blank" rel="noopener noreferrer"
-                      style={{
-                        fontSize: '0.8rem', padding: '5px 12px', borderRadius: 99,
-                        border: '1px solid rgba(200,50,200,0.3)', color: '#c050c0',
-                        textDecoration: 'none', background: 'rgba(200,50,200,0.08)',
-                        display: 'flex', alignItems: 'center', gap: 5,
-                      }}>
+                    <a key={f.id} href={`https://instagram.com/${f.instagram_handle.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '0.8rem', padding: '5px 12px', borderRadius: 99, border: '1px solid rgba(200,50,200,0.3)', color: '#c050c0', textDecoration: 'none', background: 'rgba(200,50,200,0.08)', display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Instagram size={11} /> {f.instagram_handle}
                     </a>
                   ) : (
-                    <span key={f.id} style={{
-                      fontSize: '0.8rem', padding: '5px 12px', borderRadius: 99,
-                      border: '1px solid var(--border)', color: 'var(--text-muted)',
-                      background: 'var(--muted-bg)',
-                    }}>
+                    <span key={f.id} style={{ fontSize: '0.8rem', padding: '5px 12px', borderRadius: 99, border: '1px solid var(--border)', color: 'var(--text-muted)', background: 'var(--muted-bg)' }}>
                       {f.name}
                     </span>
                   )
@@ -347,16 +301,9 @@ function SectionLabel({ icon, label, count, color }: { icon: React.ReactNode; la
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ color: color || 'var(--text-muted)' }}>{icon}</span>
-      <span style={{ fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        {label}
-      </span>
+      <span style={{ fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{label}</span>
       {count !== undefined && count > 0 && (
-        <span style={{
-          fontSize: '0.65rem', padding: '1px 7px', borderRadius: 99,
-          background: color || 'var(--glow)', color: '#fff', marginLeft: 'auto',
-        }}>
-          {count}
-        </span>
+        <span style={{ fontSize: '0.65rem', padding: '1px 7px', borderRadius: 99, background: color || 'var(--glow)', color: '#fff', marginLeft: 'auto' }}>{count}</span>
       )}
     </div>
   )
@@ -364,11 +311,7 @@ function SectionLabel({ icon, label, count, color }: { icon: React.ReactNode; la
 
 function EmptySlot({ label }: { label: string }) {
   return (
-    <div style={{
-      marginTop: 10, padding: '0.875rem', borderRadius: 8,
-      border: '1px dashed var(--border)',
-      textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)',
-    }}>
+    <div style={{ marginTop: 10, padding: '0.875rem', borderRadius: 8, border: '1px dashed var(--border)', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
       {label}
     </div>
   )
