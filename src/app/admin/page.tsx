@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Trash2, Globe, Youtube, Users, Lock, ChevronDown, ChevronUp, Search, Camera, MapPin } from 'lucide-react'
+import { Plus, Trash2, Globe, Lock, Search, MapPin, Home, Plane } from 'lucide-react'
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'atlas2024'
 
@@ -112,23 +112,132 @@ const COUNTRY_LOOKUP: Record<string, { code: string; numeric: number; flag: stri
   'Zimbabwe': { code: 'ZWE', numeric: 716, flag: '🇿🇼' },
 }
 
+// Major cities per country code
+const CITIES_BY_COUNTRY: Record<string, string[]> = {
+  NOR: ['Oslo','Bergen','Trondheim','Stavanger','Tromsø','Drammen','Fredrikstad','Kristiansand','Ålesund','Bodø'],
+  LKA: ['Colombo','Kandy','Galle','Jaffna','Negombo','Anuradhapura','Trincomalee','Batticaloa','Matara','Nuwara Eliya'],
+  CHE: ['Zurich','Geneva','Basel','Bern','Lausanne','Winterthur','Lucerne','Lugano','Interlaken','Zermatt'],
+  GBR: ['London','Manchester','Birmingham','Edinburgh','Glasgow','Leeds','Liverpool','Bristol','Oxford','Cambridge','Bath','York'],
+  FRA: ['Paris','Lyon','Marseille','Nice','Bordeaux','Toulouse','Strasbourg','Nantes','Cannes','Monaco','Annecy'],
+  ITA: ['Rome','Milan','Florence','Venice','Naples','Turin','Bologna','Amalfi','Cinque Terre','Siena','Positano'],
+  DEU: ['Berlin','Munich','Hamburg','Frankfurt','Cologne','Stuttgart','Düsseldorf','Leipzig','Dresden','Heidelberg'],
+  NLD: ['Amsterdam','Rotterdam','The Hague','Utrecht','Eindhoven','Groningen','Maastricht'],
+  ESP: ['Madrid','Barcelona','Seville','Valencia','Bilbao','Granada','Toledo','San Sebastián','Málaga','Ibiza'],
+  PRT: ['Lisbon','Porto','Faro','Sintra','Cascais','Évora','Algarve'],
+  USA: ['New York','Los Angeles','Chicago','San Francisco','Miami','Las Vegas','New Orleans','Boston','Seattle','Washington DC','Austin','Nashville'],
+  JPN: ['Tokyo','Osaka','Kyoto','Hiroshima','Sapporo','Fukuoka','Nagoya','Nara','Hakone','Nikko'],
+  AUS: ['Sydney','Melbourne','Brisbane','Perth','Adelaide','Gold Coast','Cairns','Hobart','Byron Bay'],
+  CAN: ['Toronto','Vancouver','Montreal','Calgary','Ottawa','Quebec City','Banff','Victoria'],
+  IND: ['Mumbai','Delhi','Bangalore','Kolkata','Chennai','Jaipur','Goa','Agra','Varanasi','Kerala'],
+  SGP: ['Singapore'],
+  THA: ['Bangkok','Chiang Mai','Phuket','Koh Samui','Pai','Ayutthaya','Hua Hin'],
+  ARE: ['Dubai','Abu Dhabi','Sharjah'],
+  TUR: ['Istanbul','Ankara','Izmir','Cappadocia','Antalya','Bodrum','Pamukkale'],
+  GRC: ['Athens','Santorini','Mykonos','Crete','Rhodes','Thessaloniki','Corfu'],
+  IDN: ['Bali','Jakarta','Yogyakarta','Lombok','Komodo'],
+  MYS: ['Kuala Lumpur','Penang','Langkawi','Kota Kinabalu','Malacca'],
+  PHL: ['Manila','Cebu','Boracay','Palawan','Siargao'],
+  VNM: ['Hanoi','Ho Chi Minh City','Da Nang','Hoi An','Ha Long Bay','Hue'],
+  ZAF: ['Cape Town','Johannesburg','Durban','Kruger','Stellenbosch'],
+  KEN: ['Nairobi','Mombasa','Masai Mara','Zanzibar'],
+  MAR: ['Marrakech','Casablanca','Fes','Chefchaouen','Essaouira'],
+  EGY: ['Cairo','Luxor','Aswan','Hurghada','Alexandria'],
+  BRA: ['Rio de Janeiro','São Paulo','Salvador','Florianópolis','Manaus'],
+  ARG: ['Buenos Aires','Mendoza','Patagonia','Bariloche','Iguazú'],
+  MEX: ['Mexico City','Cancún','Tulum','Oaxaca','Guadalajara','San Cristóbal'],
+  HUN: ['Budapest','Eger','Pécs','Debrecen'],
+  ISL: ['Reykjavik','Akureyri','Blue Lagoon'],
+  DNK: ['Copenhagen','Aarhus','Odense'],
+  SWE: ['Stockholm','Gothenburg','Malmö','Uppsala'],
+  FIN: ['Helsinki','Tampere','Turku','Rovaniemi'],
+  POL: ['Warsaw','Krakow','Gdansk','Wrocław','Poznań'],
+  CZE: ['Prague','Brno','Cesky Krumlov'],
+  AUT: ['Vienna','Salzburg','Innsbruck','Hallstatt'],
+  BEL: ['Brussels','Bruges','Ghent','Antwerp'],
+  HRV: ['Dubrovnik','Split','Zagreb','Plitvice'],
+  GEO: ['Tbilisi','Batumi','Kazbegi'],
+  JOR: ['Amman','Petra','Wadi Rum','Aqaba'],
+  QAT: ['Doha'],
+  KWT: ['Kuwait City'],
+  SAU: ['Riyadh','Jeddah','AlUla'],
+  LBN: ['Beirut','Byblos','Baalbek'],
+  ISR: ['Tel Aviv','Jerusalem','Haifa','Eilat'],
+}
+
 const FLAG_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(COUNTRY_LOOKUP).map(([, v]) => [v.code, v.flag])
 )
 
-type Country = { id: string; name: string; country_code: string; numeric_id: number; visited_at: string | null; notes: string | null }
+const RESIDENCE_OPTIONS = [
+  { value: 'visited', label: 'Visited', icon: '✈️', color: 'var(--glow)' },
+  { value: 'living', label: 'Living here', icon: '🏠', color: '#4dd8b0' },
+  { value: 'lived', label: 'Lived here', icon: '📦', color: '#4a9eff' },
+]
+
+type Country = { id: string; name: string; country_code: string; numeric_id: number; visited_at: string | null; notes: string | null; residence_status: string }
 type Photo = { id: string; url: string; caption: string | null }
 type Vlog = { id: string; title: string; url: string; platform: string }
 type Friend = { id: string; name: string; instagram_handle: string | null }
 type City = { id: string; trip_id: string; name: string }
 type Trip = { id: string; country_id: string; title: string | null; start_date: string | null; end_date: string | null; notes: string | null; cities: City[] }
 
-const inputStyle = {
+const inputStyle: React.CSSProperties = {
   flex: 1, padding: '0.6rem 0.75rem', borderRadius: 8,
   border: '1px solid var(--border)', background: 'var(--muted-bg)',
   color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none',
   fontFamily: 'var(--font-body)', minWidth: 0, width: '100%',
-  boxSizing: 'border-box' as const,
+  boxSizing: 'border-box',
+}
+
+// City autocomplete component
+function CityInput({ countryCode, onAdd }: { countryCode: string; onAdd: (city: string) => void }) {
+  const [value, setValue] = useState('')
+  const [suggestions, setSuggestions] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!value.trim()) { setSuggestions([]); return }
+    const cities = CITIES_BY_COUNTRY[countryCode] || []
+    setSuggestions(cities.filter(c => c.toLowerCase().startsWith(value.toLowerCase()) && c.toLowerCase() !== value.toLowerCase()).slice(0, 5))
+  }, [value, countryCode])
+
+  const submit = (city: string) => {
+    if (!city.trim()) return
+    onAdd(city.trim())
+    setValue('')
+    setSuggestions([])
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input
+          type="text"
+          placeholder="Add a city..."
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(value) }}
+          style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.4rem 0.6rem' }}
+        />
+        <button
+          onClick={() => submit(value)}
+          style={{ padding: '0.4rem 0.75rem', borderRadius: 8, background: 'rgba(77,216,176,0.15)', border: '1px solid rgba(77,216,176,0.3)', color: '#4dd8b0', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+          + Add
+        </button>
+      </div>
+      {suggestions.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 60, zIndex: 50, background: 'var(--panel-bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginTop: 3, boxShadow: '0 8px 20px rgba(0,0,0,0.3)' }}>
+          {suggestions.map(s => (
+            <button key={s} onClick={() => submit(s)}
+              style={{ display: 'block', width: '100%', padding: '0.5rem 0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.82rem', textAlign: 'left', fontFamily: 'var(--font-body)' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--hover-bg)'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}>
+              <span style={{ color: '#4dd8b0' }}>📍</span> {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AdminPage() {
@@ -144,19 +253,17 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'trips' | 'photos' | 'vlogs' | 'friends'>('trips')
   const [saving, setSaving] = useState(false)
 
-  // Country search
   const [countrySearch, setCountrySearch] = useState('')
   const [searchResults, setSearchResults] = useState<string[]>([])
   const [selectedResult, setSelectedResult] = useState<string | null>(null)
   const [newCountryDate, setNewCountryDate] = useState('')
   const [newCountryNotes, setNewCountryNotes] = useState('')
+  const [newCountryResidence, setNewCountryResidence] = useState('visited')
 
-  // New content
   const [newPhoto, setNewPhoto] = useState({ url: '', caption: '' })
   const [newVlog, setNewVlog] = useState({ title: '', url: '', platform: 'youtube' })
   const [newFriend, setNewFriend] = useState({ name: '', instagram_handle: '' })
   const [newTrip, setNewTrip] = useState({ title: '', start_date: '', end_date: '', notes: '' })
-  const [newCity, setNewCity] = useState<Record<string, string>>({}) // tripId -> city name
 
   const login = () => {
     if (pw === ADMIN_PASSWORD) { setAuthed(true); setPwError(false) }
@@ -185,37 +292,22 @@ export default function AdminPage() {
     const info = COUNTRY_LOOKUP[selectedResult]
     if (!info) return
     setSaving(true)
-    // Check if already exists
     const { data: existing } = await supabase.from('countries').select('id').eq('country_code', info.code).single()
-    if (existing) {
-      alert(`${selectedResult} is already in your archive!`)
-      setSaving(false)
-      return
-    }
+    if (existing) { alert(`${selectedResult} is already in your archive!`); setSaving(false); return }
     const { data, error } = await supabase.from('countries').insert({
-      name: selectedResult,
-      country_code: info.code,
-      numeric_id: info.numeric,
-      visited_at: newCountryDate || null,
-      notes: newCountryNotes || null,
+      name: selectedResult, country_code: info.code, numeric_id: info.numeric,
+      visited_at: newCountryDate || null, notes: newCountryNotes || null,
+      residence_status: newCountryResidence,
     }).select().single()
-    if (error) { alert('Error adding country: ' + error.message); setSaving(false); return }
+    if (error) { alert('Error: ' + error.message); setSaving(false); return }
     if (data) {
       setCountries(prev => [...prev, data])
-      // Auto-create a first trip if date given
-      if (newCountryDate) {
-        const { data: trip } = await supabase.from('trips').insert({
-          country_id: data.id,
-          title: 'First visit',
-          start_date: newCountryDate,
-        }).select().single()
+      if (newCountryDate && newCountryResidence === 'visited') {
+        const { data: trip } = await supabase.from('trips').insert({ country_id: data.id, title: 'First visit', start_date: newCountryDate }).select().single()
         if (trip) setTrips(prev => [...prev, { ...trip, cities: [] }])
       }
     }
-    setCountrySearch('')
-    setSelectedResult(null)
-    setNewCountryDate('')
-    setNewCountryNotes('')
+    setCountrySearch(''); setSelectedResult(null); setNewCountryDate(''); setNewCountryNotes(''); setNewCountryResidence('visited')
     setSaving(false)
   }
 
@@ -224,6 +316,12 @@ export default function AdminPage() {
     await supabase.from('countries').delete().eq('id', id)
     setCountries(prev => prev.filter(c => c.id !== id))
     if (selectedCountry?.id === id) setSelectedCountry(null)
+  }
+
+  const updateResidence = async (id: string, status: string) => {
+    await supabase.from('countries').update({ residence_status: status }).eq('id', id)
+    setCountries(prev => prev.map(c => c.id === id ? { ...c, residence_status: status } : c))
+    if (selectedCountry?.id === id) setSelectedCountry(prev => prev ? { ...prev, residence_status: status } : null)
   }
 
   const selectCountry = async (c: Country) => {
@@ -239,22 +337,13 @@ export default function AdminPage() {
       const { data: cities } = await supabase.from('cities').select('*').eq('trip_id', trip.id)
       return { ...trip, cities: cities || [] }
     }))
-    setPhotos(p.data || [])
-    setVlogs(v.data || [])
-    setFriends(f.data || [])
-    setTrips(tripsWithCities)
+    setPhotos(p.data || []); setVlogs(v.data || []); setFriends(f.data || []); setTrips(tripsWithCities)
   }
 
   const addTrip = async () => {
     if (!selectedCountry || !newTrip.start_date) return
     setSaving(true)
-    const { data } = await supabase.from('trips').insert({
-      country_id: selectedCountry.id,
-      title: newTrip.title || null,
-      start_date: newTrip.start_date,
-      end_date: newTrip.end_date || null,
-      notes: newTrip.notes || null,
-    }).select().single()
+    const { data } = await supabase.from('trips').insert({ country_id: selectedCountry.id, title: newTrip.title || null, start_date: newTrip.start_date, end_date: newTrip.end_date || null, notes: newTrip.notes || null }).select().single()
     if (data) setTrips(prev => [...prev, { ...data, cities: [] }])
     setNewTrip({ title: '', start_date: '', end_date: '', notes: '' })
     setSaving(false)
@@ -265,14 +354,9 @@ export default function AdminPage() {
     setTrips(prev => prev.filter(t => t.id !== id))
   }
 
-  const addCity = async (tripId: string) => {
-    const name = newCity[tripId]?.trim()
-    if (!name) return
-    const { data } = await supabase.from('cities').insert({ trip_id: tripId, name }).select().single()
-    if (data) {
-      setTrips(prev => prev.map(t => t.id === tripId ? { ...t, cities: [...t.cities, data] } : t))
-      setNewCity(prev => ({ ...prev, [tripId]: '' }))
-    }
+  const addCity = async (tripId: string, cityName: string) => {
+    const { data } = await supabase.from('cities').insert({ trip_id: tripId, name: cityName }).select().single()
+    if (data) setTrips(prev => prev.map(t => t.id === tripId ? { ...t, cities: [...t.cities, data] } : t))
   }
 
   const deleteCity = async (tripId: string, cityId: string) => {
@@ -285,8 +369,7 @@ export default function AdminPage() {
     setSaving(true)
     const { data } = await supabase.from('photos').insert({ country_id: selectedCountry.id, url: newPhoto.url, caption: newPhoto.caption || null }).select().single()
     if (data) setPhotos(prev => [...prev, data])
-    setNewPhoto({ url: '', caption: '' })
-    setSaving(false)
+    setNewPhoto({ url: '', caption: '' }); setSaving(false)
   }
 
   const deletePhoto = async (id: string) => {
@@ -299,8 +382,7 @@ export default function AdminPage() {
     setSaving(true)
     const { data } = await supabase.from('vlogs').insert({ country_id: selectedCountry.id, ...newVlog }).select().single()
     if (data) setVlogs(prev => [...prev, data])
-    setNewVlog({ title: '', url: '', platform: 'youtube' })
-    setSaving(false)
+    setNewVlog({ title: '', url: '', platform: 'youtube' }); setSaving(false)
   }
 
   const deleteVlog = async (id: string) => {
@@ -313,8 +395,7 @@ export default function AdminPage() {
     setSaving(true)
     const { data } = await supabase.from('friends').insert({ country_id: selectedCountry.id, name: newFriend.name, instagram_handle: newFriend.instagram_handle || null }).select().single()
     if (data) setFriends(prev => [...prev, data])
-    setNewFriend({ name: '', instagram_handle: '' })
-    setSaving(false)
+    setNewFriend({ name: '', instagram_handle: '' }); setSaving(false)
   }
 
   const deleteFriend = async (id: string) => {
@@ -352,7 +433,6 @@ export default function AdminPage() {
         <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: '1rem 0.75rem' }}>
           <div style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', padding: '0 0.5rem', marginBottom: '0.75rem' }}>Countries</div>
 
-          {/* Search */}
           <div style={{ position: 'relative', marginBottom: 8 }}>
             <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
             <input type="text" placeholder="Search & add country..." value={countrySearch}
@@ -373,19 +453,27 @@ export default function AdminPage() {
           </div>
 
           {selectedResult && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12, padding: '0.75rem', background: 'var(--selected-bg)', borderRadius: 8, border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12, padding: '0.75rem', background: 'var(--selected-bg)', borderRadius: 8, border: '1px solid var(--border)' }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--glow)', fontWeight: 500 }}>{COUNTRY_LOOKUP[selectedResult]?.flag} {selectedResult}</div>
-              <input type="date" value={newCountryDate} onChange={e => setNewCountryDate(e.target.value)}
-                style={{ ...inputStyle, colorScheme: 'dark' }} placeholder="Date visited" />
-              <input type="text" value={newCountryNotes} onChange={e => setNewCountryNotes(e.target.value)}
-                placeholder="Notes (optional)" style={inputStyle} />
+
+              {/* Residence toggle */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                {RESIDENCE_OPTIONS.map(opt => (
+                  <button key={opt.value} onClick={() => setNewCountryResidence(opt.value)}
+                    style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: `1px solid ${newCountryResidence === opt.value ? opt.color : 'var(--border)'}`, background: newCountryResidence === opt.value ? `${opt.color}22` : 'transparent', color: newCountryResidence === opt.value ? opt.color : 'var(--text-muted)', fontSize: '0.7rem', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    {opt.icon}<br />{opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <input type="date" value={newCountryDate} onChange={e => setNewCountryDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} />
+              <input type="text" value={newCountryNotes} onChange={e => setNewCountryNotes(e.target.value)} placeholder="Notes (optional)" style={inputStyle} />
               <button onClick={addCountry} disabled={saving} style={{ padding: '0.5rem', borderRadius: 8, background: 'var(--glow)', border: 'none', color: '#fff', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                 <Plus size={12} /> Add country
               </button>
             </div>
           )}
 
-          {/* List */}
           {countries.map(c => (
             <div key={c.id} onClick={() => selectCountry(c)}
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.6rem 0.75rem', borderRadius: 8, cursor: 'pointer', background: selectedCountry?.id === c.id ? 'var(--selected-bg)' : 'transparent', marginBottom: 2 }}
@@ -394,16 +482,18 @@ export default function AdminPage() {
               <span style={{ fontSize: '1rem' }}>{FLAG_MAP[c.country_code] || '🌍'}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '0.85rem', fontWeight: selectedCountry?.id === c.id ? 500 : 400 }}>{c.name}</div>
-                {c.visited_at && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(c.visited_at).getFullYear()}</div>}
+                <div style={{ fontSize: '0.7rem', color: c.residence_status === 'living' ? '#4dd8b0' : c.residence_status === 'lived' ? '#4a9eff' : 'var(--text-muted)' }}>
+                  {c.residence_status === 'living' ? '🏠 Living' : c.residence_status === 'lived' ? '📦 Lived' : c.visited_at ? new Date(c.visited_at).getFullYear() : ''}
+                </div>
               </div>
-              <button onClick={e => { e.stopPropagation(); deleteCountry(c.id) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 4, display: 'flex' }}>
+              <button onClick={e => { e.stopPropagation(); deleteCountry(c.id) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}>
                 <Trash2 size={13} />
               </button>
             </div>
           ))}
         </div>
 
-        {/* Content area */}
+        {/* Content */}
         <div style={{ overflowY: 'auto', padding: '1.5rem' }}>
           {!selectedCountry ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', gap: 8 }}>
@@ -411,40 +501,46 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400 }}>{FLAG_MAP[selectedCountry.country_code] || '🌍'} {selectedCountry.name}</h2>
-                {selectedCountry.notes && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>"{selectedCountry.notes}"</p>}
+              <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                <div>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400 }}>{FLAG_MAP[selectedCountry.country_code] || '🌍'} {selectedCountry.name}</h2>
+                  {selectedCountry.notes && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>"{selectedCountry.notes}"</p>}
+                </div>
+
+                {/* Residence status switcher */}
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {RESIDENCE_OPTIONS.map(opt => (
+                    <button key={opt.value} onClick={() => updateResidence(selectedCountry.id, opt.value)}
+                      style={{ padding: '5px 10px', borderRadius: 8, border: `1px solid ${selectedCountry.residence_status === opt.value ? opt.color : 'var(--border)'}`, background: selectedCountry.residence_status === opt.value ? `${opt.color}22` : 'transparent', color: selectedCountry.residence_status === opt.value ? opt.color : 'var(--text-muted)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                      {opt.icon} {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Tabs */}
               <div style={{ display: 'flex', gap: 4, marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
                 {(['trips', 'photos', 'vlogs', 'friends'] as const).map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                    padding: '6px 16px', borderRadius: 99, border: 'none', cursor: 'pointer',
-                    background: activeTab === tab ? 'var(--glow)' : 'var(--muted-bg)',
-                    color: activeTab === tab ? '#fff' : 'var(--text-muted)',
-                    fontSize: '0.8rem', fontWeight: 500, fontFamily: 'var(--font-body)', textTransform: 'capitalize',
-                  }}>{tab}</button>
+                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '6px 16px', borderRadius: 99, border: 'none', cursor: 'pointer', background: activeTab === tab ? 'var(--glow)' : 'var(--muted-bg)', color: activeTab === tab ? '#fff' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 500, fontFamily: 'var(--font-body)', textTransform: 'capitalize' }}>{tab}</button>
                 ))}
               </div>
 
-              {/* Trips tab */}
+              {/* Trips */}
               {activeTab === 'trips' && (
                 <div>
-                  {/* Add trip */}
+                  {selectedCountry.residence_status !== 'visited' && (
+                    <div style={{ padding: '0.75rem 1rem', borderRadius: 10, border: '1px solid var(--border)', marginBottom: '1rem', background: 'var(--muted-bg)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      {selectedCountry.residence_status === 'living' ? '🏠 You\'re currently living here.' : '📦 You used to live here.'} You can still log trips/visits below.
+                    </div>
+                  )}
                   <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '1rem', marginBottom: '1.5rem', background: 'var(--muted-bg)' }}>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Add a trip</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <input type="text" placeholder='Trip name (e.g. "Summer 2024")' value={newTrip.title} onChange={e => setNewTrip(p => ({ ...p, title: e.target.value }))} style={inputStyle} />
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>Start date</div>
-                          <input type="date" value={newTrip.start_date} onChange={e => setNewTrip(p => ({ ...p, start_date: e.target.value }))} style={{ ...inputStyle, colorScheme: 'dark' }} />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>End date</div>
-                          <input type="date" value={newTrip.end_date} onChange={e => setNewTrip(p => ({ ...p, end_date: e.target.value }))} style={{ ...inputStyle, colorScheme: 'dark' }} />
-                        </div>
+                        <div><div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>Start date</div>
+                          <input type="date" value={newTrip.start_date} onChange={e => setNewTrip(p => ({ ...p, start_date: e.target.value }))} style={{ ...inputStyle, colorScheme: 'dark' }} /></div>
+                        <div><div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>End date</div>
+                          <input type="date" value={newTrip.end_date} onChange={e => setNewTrip(p => ({ ...p, end_date: e.target.value }))} style={{ ...inputStyle, colorScheme: 'dark' }} /></div>
                       </div>
                       <input type="text" placeholder="Notes (optional)" value={newTrip.notes} onChange={e => setNewTrip(p => ({ ...p, notes: e.target.value }))} style={inputStyle} />
                       <button onClick={addTrip} disabled={saving || !newTrip.start_date} style={{ padding: '0.6rem 1rem', borderRadius: 8, background: 'var(--glow)', border: 'none', color: '#fff', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 4, opacity: !newTrip.start_date ? 0.5 : 1 }}>
@@ -453,8 +549,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Trips list */}
-                  {trips.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No trips yet — add one above.</p>}
+                  {trips.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No trips yet.</p>}
                   {trips.map(trip => (
                     <div key={trip.id} style={{ border: '1px solid var(--border)', borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.75rem 1rem', background: 'var(--muted-bg)' }}>
@@ -466,60 +561,40 @@ export default function AdminPage() {
                             {trip.end_date ? ` → ${new Date(trip.end_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}` : ''}
                           </div>
                         </div>
-                        <button onClick={() => deleteTrip(trip.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                          <Trash2 size={13} />
-                        </button>
+                        <button onClick={() => deleteTrip(trip.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><Trash2 size={13} /></button>
                       </div>
-
-                      {/* Cities */}
                       <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <MapPin size={10} /> Cities
-                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={10} /> Cities</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                           {trip.cities.map(city => (
                             <span key={city.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.78rem', padding: '3px 10px', borderRadius: 99, background: 'rgba(77,216,176,0.1)', color: '#4dd8b0', border: '1px solid rgba(77,216,176,0.25)' }}>
                               {city.name}
-                              <button onClick={() => deleteCity(trip.id, city.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4dd8b0', padding: 0, display: 'flex', lineHeight: 1 }}>
-                                <X size={10} />
-                              </button>
+                              <button onClick={() => deleteCity(trip.id, city.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4dd8b0', padding: 0, display: 'flex', lineHeight: 1 }}>✕</button>
                             </span>
                           ))}
                           {trip.cities.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No cities yet</span>}
                         </div>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <input type="text" placeholder="Add a city..." value={newCity[trip.id] || ''}
-                            onChange={e => setNewCity(prev => ({ ...prev, [trip.id]: e.target.value }))}
-                            onKeyDown={e => e.key === 'Enter' && addCity(trip.id)}
-                            style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.4rem 0.6rem' }} />
-                          <button onClick={() => addCity(trip.id)} style={{ padding: '0.4rem 0.75rem', borderRadius: 8, background: 'rgba(77,216,176,0.15)', border: '1px solid rgba(77,216,176,0.3)', color: '#4dd8b0', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
-                            + Add
-                          </button>
-                        </div>
+                        <CityInput countryCode={selectedCountry.country_code} onAdd={(city) => addCity(trip.id, city)} />
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Photos tab */}
+              {/* Photos */}
               {activeTab === 'photos' && (
                 <div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
                     <input type="text" placeholder="Image URL" value={newPhoto.url} onChange={e => setNewPhoto(p => ({ ...p, url: e.target.value }))} style={inputStyle} />
                     <input type="text" placeholder="Caption (optional)" value={newPhoto.caption} onChange={e => setNewPhoto(p => ({ ...p, caption: e.target.value }))} style={inputStyle} />
-                    <button onClick={addPhoto} disabled={saving} style={{ padding: '0.6rem 1rem', borderRadius: 8, background: 'var(--glow)', border: 'none', color: '#fff', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Plus size={13} /> Add
-                    </button>
+                    <button onClick={addPhoto} disabled={saving} style={{ padding: '0.6rem 1rem', borderRadius: 8, background: 'var(--glow)', border: 'none', color: '#fff', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> Add</button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
                     {photos.map(p => (
                       <div key={p.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
                         <img src={p.url} alt={p.caption || ''} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
                         {p.caption && <div style={{ padding: '6px 8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.caption}</div>}
-                        <button onClick={() => deletePhoto(p.id)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
-                          <Trash2 size={11} />
-                        </button>
+                        <button onClick={() => deletePhoto(p.id)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}><Trash2 size={11} /></button>
                       </div>
                     ))}
                     {photos.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No photos yet</p>}
@@ -527,7 +602,7 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* Vlogs tab */}
+              {/* Vlogs */}
               {activeTab === 'vlogs' && (
                 <div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 8, marginBottom: '1rem' }}>
@@ -538,9 +613,7 @@ export default function AdminPage() {
                       <option value="instagram">Instagram</option>
                       <option value="tiktok">TikTok</option>
                     </select>
-                    <button onClick={addVlog} disabled={saving} style={{ padding: '0.6rem 1rem', borderRadius: 8, background: 'var(--glow)', border: 'none', color: '#fff', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Plus size={13} /> Add
-                    </button>
+                    <button onClick={addVlog} disabled={saving} style={{ padding: '0.6rem 1rem', borderRadius: 8, background: 'var(--glow)', border: 'none', color: '#fff', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> Add</button>
                   </div>
                   {vlogs.map(v => (
                     <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem', borderRadius: 10, border: '1px solid var(--border)', marginBottom: 8 }}>
@@ -555,15 +628,13 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* Friends tab */}
+              {/* Friends */}
               {activeTab === 'friends' && (
                 <div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
                     <input type="text" placeholder="Name" value={newFriend.name} onChange={e => setNewFriend(p => ({ ...p, name: e.target.value }))} style={inputStyle} />
                     <input type="text" placeholder="Instagram @handle" value={newFriend.instagram_handle} onChange={e => setNewFriend(p => ({ ...p, instagram_handle: e.target.value }))} style={inputStyle} />
-                    <button onClick={addFriend} disabled={saving} style={{ padding: '0.6rem 1rem', borderRadius: 8, background: 'var(--glow)', border: 'none', color: '#fff', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Plus size={13} /> Add
-                    </button>
+                    <button onClick={addFriend} disabled={saving} style={{ padding: '0.6rem 1rem', borderRadius: 8, background: 'var(--glow)', border: 'none', color: '#fff', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> Add</button>
                   </div>
                   {friends.map(f => (
                     <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem', borderRadius: 10, border: '1px solid var(--border)', marginBottom: 8 }}>
@@ -586,8 +657,4 @@ export default function AdminPage() {
       </div>
     </div>
   )
-}
-
-function X({ size }: { size: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 }
