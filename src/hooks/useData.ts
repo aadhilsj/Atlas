@@ -36,10 +36,27 @@ export type Vlog = {
   thumbnail_url: string | null
 }
 
+export type City = {
+  id: string
+  trip_id: string
+  name: string
+}
+
+export type Trip = {
+  id: string
+  country_id: string
+  title: string | null
+  start_date: string | null
+  end_date: string | null
+  notes: string | null
+  cities: City[]
+}
+
 export type CountryFull = Country & {
   photos: Photo[]
   friends: Friend[]
   vlogs: Vlog[]
+  trips: Trip[]
 }
 
 export function useCountries() {
@@ -72,13 +89,25 @@ export function useCountryFull(countryId: string | null) {
       supabase.from('photos').select('*').eq('country_id', countryId).order('taken_at'),
       supabase.from('friends').select('*').eq('country_id', countryId),
       supabase.from('vlogs').select('*').eq('country_id', countryId),
-    ]).then(([country, photos, friends, vlogs]) => {
+      supabase.from('trips').select('*').eq('country_id', countryId).order('start_date'),
+    ]).then(async ([country, photos, friends, vlogs, trips]) => {
       if (country.data) {
+        const tripData = trips.data || []
+        const tripsWithCities: Trip[] = await Promise.all(
+          tripData.map(async (trip) => {
+            const { data: cities } = await supabase
+              .from('cities')
+              .select('*')
+              .eq('trip_id', trip.id)
+            return { ...trip, cities: cities || [] }
+          })
+        )
         setData({
           ...country.data,
           photos: photos.data || [],
           friends: friends.data || [],
           vlogs: vlogs.data || [],
+          trips: tripsWithCities,
         })
       }
       setLoading(false)
